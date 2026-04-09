@@ -376,3 +376,104 @@ npx playwright test tests/generated/ --project voice-tests
 | Code       | `require()` · `var` · untyped `any` without comment · default exports                                                              |
 | Git        | Co-author attribution · emoji in commits · batching unrelated changes                                                              |
 | Security   | Committing `.env` · logging API keys                                                                                               |
+
+---
+
+## Rollout Task List
+
+Full context and validation criteria for each week → [`implementation_plan.md §20`](./implementation_plan.md#20-rollout-plan).
+
+### Week 1 — Foundation
+
+**Goal:** Service runs, Explorer works, no agents yet.
+
+- [ ] Scaffold repo structure (all folders, `tsconfig.json`, root `package.json`)
+- [ ] Set up Docker Compose — service + dashboard + postgres containers
+- [ ] Implement `src/memory/mem0.client.ts` with typed agent/session/user scopes
+- [ ] Implement Express API gateway — `POST /runs`, `GET /runs/:id/stream` (SSE)
+- [ ] Build Explorer agent (`src/agents/explorer.graph.ts`) — run against staging URL manually
+- [ ] Verify accessibility tree output is useful for at least 3 routes
+- [ ] Auth setup — save `storageState` for all roles to `tests/.auth/`
+- [ ] Dashboard: Run Trigger page only (`dashboard/src/pages/RunTrigger.tsx`)
+
+**Done when:** QA engineer can trigger a run from the dashboard and see the Explorer's app context JSON.
+
+---
+
+### Week 2 — Human-in-the-Loop
+
+**Goal:** Specs generate, QA reviews them, system learns from feedback.
+
+- [ ] Implement Test Case agent (`src/agents/testcase.graph.ts`) — spec generation
+- [ ] Implement LangGraph human checkpoint — graph pauses after Agent 2 (`specsApproved: false`)
+- [ ] Implement `POST /runs/:id/approve` endpoint in `src/api/routes.ts`
+- [ ] Dashboard: Spec Review page with inline editor (`dashboard/src/pages/SpecReview.tsx`)
+- [ ] Implement Mem0 writes for spec patterns and user preferences
+- [ ] Test with real feature — QA reviews AI specs for 3 existing flows
+
+**Done when:** QA team reviews AI-generated specs for familiar features and 80%+ need no edits.
+
+---
+
+### Week 3 — Automation, Voice & GitHub Integration
+
+**Goal:** Tests run, voice works, results stream to dashboard. GitHub codebase access live.
+
+- [ ] Implement Automation agent (`src/agents/automation.graph.ts`) — UI, voice, API code gen templates
+- [ ] Implement `injectSpeechMock` and `injectSpeechErrorMock` in `src/tools/voice.tools.ts`
+- [ ] Create audio fixture library — 6 WAV files in `tests/fixtures/audio/`
+- [ ] Set up `playwright.config.ts` with voice project (`workers: 1`) and UI project (`workers: 4`)
+- [ ] Implement SSE result streaming from runner to dashboard
+- [ ] Dashboard: Run Monitor page (`dashboard/src/pages/RunMonitor.tsx`)
+- [ ] Create fine-grained GitHub PAT (`contents: read` only on app repo)
+- [ ] Add `GITHUB_TOKEN`, `GITHUB_OWNER`, `GITHUB_REPO` to `.env` and Docker secrets
+- [ ] Install `@langchain/mcp-adapters`, implement `src/tools/github.tools.ts`
+- [ ] Add GitHub MCP sidecar to `docker-compose.yml`
+- [ ] Wire `enrichWithCodebase` into Explorer — validate it finds the React Router config file
+- [ ] Wire `fetchValidationLogic` into Test Case — validate edge cases reference real Zod constraints
+- [ ] Run in shadow mode alongside existing QA process — compare results
+
+**Done when:** Agent-generated tests catch the same bugs as manual testing for 3 flows. Spec edge cases reference real Zod schema constraints, not DOM inference.
+
+---
+
+### Week 4 — API Tester, Maintenance & Source-Aware Healing
+
+**Goal:** Full pipeline end-to-end, self-healing working, Scoper uses git diff.
+
+- [ ] Implement API Tester agent (`src/agents/api-tester.graph.ts`) — contract, auth, input validation
+- [ ] Add `testTransactionMiddleware` to main backend
+- [ ] Implement `POST /api/test/seed` on main backend with at least 5 scenarios
+- [ ] Implement Maintenance agent (`src/agents/maintenance.graph.ts`) — triage, heal, escalate
+- [ ] Wire `fetchGitDiff` into Scoper — validate blast radius narrows vs memory-only approach
+- [ ] Wire `fetchRepoFile` into Maintenance `healSelectors` — validate heal success rate improves
+- [ ] Dashboard: Failure Triage page (`dashboard/src/pages/FailureTriage.tsx`)
+- [ ] Run full regression — measure pass rate
+
+**Done when:** Full pipeline runs end-to-end. Maintenance agent heals at least 1 real selector breakage without human intervention. Scoper's blast radius matches actual changed files from git diff.
+
+---
+
+### Week 5 — Feature Scoping & Memory Inspector
+
+**Goal:** Scoped runs work, memory is inspectable and correctable.
+
+- [ ] Implement Scoper agent (`src/agents/scoper.graph.ts`)
+- [ ] Add `runMode: "feature"` option to dashboard Run Trigger form
+- [ ] Implement blast-radius auto-approval logic (regression bucket skips human review)
+- [ ] Dashboard: Memory Inspector page (`dashboard/src/pages/MemoryInspector.tsx`)
+- [ ] Test scoped run against a real new feature in the app
+- [ ] Implement smoke mode — critical flows queried from user-scoped Mem0
+
+**Done when:** QA engineer tests a new feature in under 10 minutes from trigger to results. Memory Inspector surfaces meaningful learned facts that can be deleted.
+
+---
+
+### Month 2 — Hardening
+
+- [ ] Tune Maintenance agent — track heal success rate in Mem0, improve prompts based on patterns
+- [ ] Add flaky test quarantine — tests that fail intermittently get auto-disabled and flagged
+- [ ] Expand fixture scenario catalog in `src/tools/fixtures.catalog.ts` as app grows
+- [ ] Add LLM token cost monitoring — log cost per agent per run
+- [ ] Tune Explorer overlay dismissal to handle all overlay types encountered in the app
+- [ ] Write QA team runbook: how to add memory corrections, add fixture scenarios, set critical flows
