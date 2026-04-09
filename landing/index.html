@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AetherQA — Autonomous QA That Learns</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- ─── NAV ─── -->
+    <nav class="nav">
+        <div class="nav__inner">
+            <a href="/" class="nav__logo">
+                <span class="nav__logo-mark">A</span>
+                <span class="nav__logo-text">AetherQA</span>
+            </a>
+            <div class="nav__links">
+                <a href="#features">Features</a>
+                <a href="#pipeline">Pipeline</a>
+                <a href="#how-it-works">How It Works</a>
+                <a href="#get-started" class="nav__cta">Get Started</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ─── HERO ─── -->
+    <header class="hero grid-bg" id="hero">
+        <div class="hero__inner">
+            <div class="hero__badge">Autonomous QA System</div>
+            <h1 class="hero__title">
+                QA that writes tests,<br>
+                runs them, and <span class="hero__accent">heals itself.</span>
+            </h1>
+            <p class="hero__sub">
+                AetherQA is a five-agent pipeline that crawls your app, generates test
+                specs, writes Playwright scripts, self-heals broken selectors, and
+                gets smarter every run through persistent memory.
+            </p>
+            <div class="hero__actions">
+                <a href="#get-started" class="btn btn--primary">Start Using AetherQA</a>
+                <a href="#pipeline" class="btn btn--ghost">See the Pipeline</a>
+            </div>
+            <div class="hero__terminal">
+                <div class="terminal">
+                    <div class="terminal__bar">
+                        <span class="terminal__dot terminal__dot--red"></span>
+                        <span class="terminal__dot terminal__dot--yellow"></span>
+                        <span class="terminal__dot terminal__dot--green"></span>
+                        <span class="terminal__title">aetherqa — run monitor</span>
+                    </div>
+                    <div class="terminal__body">
+                        <code><span class="t-muted">$</span> aetherqa run --mode feature --target staging.app.com</code>
+                        <code
+                            class="t-accent">[Scoper]</code><code>  Mapped blast radius: /lessons, /dashboard, /api/progress</code>
+                        <code
+                            class="t-accent">[Explorer]</code><code>  Crawled 12 routes, found voice input on /pronunciation</code>
+                        <code
+                            class="t-accent">[TestCase]</code><code>  Generated 24 specs (18 feature, 6 regression)</code>
+                        <code
+                            class="t-warn">[Waiting]</code><code>  Human review required — open dashboard to approve</code>
+                        <code
+                            class="t-accent">[Automation]</code><code>  Running 24 Playwright tests across 4 workers...</code>
+                        <code class="t-pass">[Results]</code><code>  22 passed, 1 healed, 1 escalated — 0 flaky</code>
+                        <code
+                            class="t-heal">[Maintenance]</code><code>  Self-healed: submit-button selector updated</code>
+                        <code class="t-muted">Run completed in 4m 12s. Memory updated.</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ─── FEATURES ─── -->
+    <section class="section features" id="features">
+        <div class="section__inner">
+            <div class="section__header">
+                <span class="section__tag">Capabilities</span>
+                <h2 class="section__title">Everything your QA team needs.<br>Nothing they don't.</h2>
+            </div>
+            <div class="features__grid">
+                <div class="feature-card">
+                    <div class="feature-card__icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8" />
+                            <path d="m21 21-4.3-4.3" />
+                        </svg>
+                    </div>
+                    <h3 class="feature-card__title">Autonomous Exploration</h3>
+                    <p class="feature-card__desc">Crawls your app with a real browser, captures accessibility trees,
+                        intercepts API calls, and detects voice inputs, file uploads, and infinite scroll.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-card__icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <line x1="16" y1="13" x2="8" y2="13" />
+                            <line x1="16" y1="17" x2="8" y2="17" />
+                            <line x1="10" y1="9" x2="8" y2="9" />
+                        </svg>
+                    </div>
+                    <h3 class="feature-card__title">Spec Generation</h3>
+                    <p class="feature-card__desc">Generates human-readable Markdown test specs with edge cases,
+                        preconditions, and expected outcomes. Your QA team reviews and approves before any code runs.
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-card__icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="16 18 22 12 16 6" />
+                            <polyline points="8 6 2 12 8 18" />
+                        </svg>
+                    </div>
+                    <h3 class="feature-card__title">Playwright Code Gen</h3>
+                    <p class="feature-card__desc">Writes real Playwright TypeScript tests from approved specs. Three
+                        templates: UI, voice, and API. Runs them immediately and streams results to your dashboard.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-card__icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+                            <path d="m9 12 2 2 4-4" />
+                        </svg>
+                    </div>
+                    <h3 class="feature-card__title">Self-Healing Tests</h3>
+                    <p class="feature-card__desc">When selectors break after a deploy, the Maintenance agent reads your
+                        React source from GitHub, finds the new selector, patches the test, and re-runs it.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-card__icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                            <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                            <line x1="12" y1="19" x2="12" y2="22" />
+                        </svg>
+                    </div>
+                    <h3 class="feature-card__title">Voice & Mic Testing</h3>
+                    <p class="feature-card__desc">Mocks Web Speech API and getUserMedia. Tests happy paths, error states
+                        (permission denied, no speech, network error), and edge inputs like silence or background noise.
+                    </p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-card__icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                            <path d="M3 3v5h5" />
+                            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                            <path d="M16 16h5v5" />
+                        </svg>
+                    </div>
+                    <h3 class="feature-card__title">Persistent Memory</h3>
+                    <p class="feature-card__desc">Learns from every run via Mem0. Remembers your app structure,
+                        successful heal patterns, known bugs, and QA preferences. Gets measurably smarter over time.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── PIPELINE ─── -->
+    <section class="section pipeline grid-bg" id="pipeline">
+        <div class="section__inner">
+            <div class="section__header">
+                <span class="section__tag">Architecture</span>
+                <h2 class="section__title">Five agents. One pipeline.</h2>
+                <p class="section__sub">Each agent is a LangGraph subgraph with its own memory scope. They read context
+                    from Mem0 before acting and write learnings back after.</p>
+            </div>
+            <div class="pipeline__flow">
+                <div class="pipeline__step">
+                    <div class="pipeline__num">0</div>
+                    <div class="pipeline__content">
+                        <h3>Scoper</h3>
+                        <p>Parses your feature description, reads git diff, maps direct scope + blast radius + skip
+                            list.</p>
+                        <span class="pipeline__tag">Feature mode only</span>
+                    </div>
+                </div>
+                <div class="pipeline__connector"></div>
+                <div class="pipeline__step">
+                    <div class="pipeline__num">1</div>
+                    <div class="pipeline__content">
+                        <h3>Explorer</h3>
+                        <p>Crawls scoped routes with Playwright, captures accessibility trees, intercepts network calls.
+                        </p>
+                    </div>
+                </div>
+                <div class="pipeline__connector"></div>
+                <div class="pipeline__step">
+                    <div class="pipeline__num">2</div>
+                    <div class="pipeline__content">
+                        <h3>Test Case</h3>
+                        <p>Generates Markdown specs with edge cases derived from your real Zod schemas.</p>
+                        <span class="pipeline__tag pipeline__tag--warn">Human checkpoint</span>
+                    </div>
+                </div>
+                <div class="pipeline__connector"></div>
+                <div class="pipeline__step">
+                    <div class="pipeline__num">3</div>
+                    <div class="pipeline__content">
+                        <h3>Automation</h3>
+                        <p>Writes Playwright .spec.ts files from approved specs. Runs them across parallel workers.</p>
+                    </div>
+                </div>
+                <div class="pipeline__connector"></div>
+                <div class="pipeline__step">
+                    <div class="pipeline__num">4</div>
+                    <div class="pipeline__content">
+                        <h3>Maintenance</h3>
+                        <p>Triages failures, self-heals broken selectors, quarantines flaky tests, escalates real bugs.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="pipeline__parallel">
+                <div class="pipeline__parallel-label">Runs in parallel</div>
+                <div class="pipeline__step pipeline__step--parallel">
+                    <div class="pipeline__num">5</div>
+                    <div class="pipeline__content">
+                        <h3>API Tester</h3>
+                        <p>Fetches OpenAPI spec, diffs against last run, generates contract + auth + validation tests
+                            for every endpoint.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── HOW IT WORKS ─── -->
+    <section class="section how-it-works" id="how-it-works">
+        <div class="section__inner">
+            <div class="section__header">
+                <span class="section__tag">Workflow</span>
+                <h2 class="section__title">From trigger to results in minutes.</h2>
+            </div>
+            <div class="steps">
+                <div class="step">
+                    <div class="step__number">01</div>
+                    <div class="step__content">
+                        <h3>Trigger a run</h3>
+                        <p>Choose full regression, smoke, or feature mode. Describe the feature in plain English. Hit
+                            start.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step__number">02</div>
+                    <div class="step__content">
+                        <h3>Review AI specs</h3>
+                        <p>The system generates test specs and pauses. Your QA team reviews, edits edge cases, and
+                            approves.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step__number">03</div>
+                    <div class="step__content">
+                        <h3>Watch tests run</h3>
+                        <p>Live SSE streaming shows each test as it passes or fails. Voice tests, UI tests, and API
+                            tests run together.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step__number">04</div>
+                    <div class="step__content">
+                        <h3>Triage what matters</h3>
+                        <p>Broken selectors get healed automatically. Real bugs surface with AI diagnosis, screenshots,
+                            and curl commands to reproduce.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── METRICS ─── -->
+    <section class="section metrics grid-bg" id="metrics">
+        <div class="section__inner">
+            <div class="section__header">
+                <span class="section__tag">Impact</span>
+                <h2 class="section__title">What changes for your QA team.</h2>
+            </div>
+            <div class="metrics__grid">
+                <div class="metric-card">
+                    <div class="metric-card__label">Feature spec writing</div>
+                    <div class="metric-card__before">2-4 hours</div>
+                    <div class="metric-card__arrow">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 12h14" />
+                            <path d="m12 5 7 7-7 7" />
+                        </svg>
+                    </div>
+                    <div class="metric-card__after">~10 min review</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-card__label">Test code authoring</div>
+                    <div class="metric-card__before">2-4 hours</div>
+                    <div class="metric-card__arrow">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 12h14" />
+                            <path d="m12 5 7 7-7 7" />
+                        </svg>
+                    </div>
+                    <div class="metric-card__after">0 min</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-card__label">Selector maintenance</div>
+                    <div class="metric-card__before">~40% of QA time</div>
+                    <div class="metric-card__arrow">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 12h14" />
+                            <path d="m12 5 7 7-7 7" />
+                        </svg>
+                    </div>
+                    <div class="metric-card__after">Auto-healed</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-card__label">Regression execution</div>
+                    <div class="metric-card__before">2-3 hours</div>
+                    <div class="metric-card__arrow">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M5 12h14" />
+                            <path d="m12 5 7 7-7 7" />
+                        </svg>
+                    </div>
+                    <div class="metric-card__after">~5 min automated</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── CTA ─── -->
+    <section class="section cta" id="get-started">
+        <div class="section__inner">
+            <div class="cta__content">
+                <h2 class="cta__title">Ready to stop writing tests by hand?</h2>
+                <p class="cta__sub">AetherQA runs as a standalone Docker service. No changes to your main codebase.
+                    Connect it to your staging URL and let it learn.</p>
+                <div class="cta__code">
+                    <code><span class="t-muted">$</span> docker compose up -d</code>
+                </div>
+                <a href="https://github.com/aniruddhabagal/aetherqa" class="btn btn--primary btn--large">View on
+                    GitHub</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ─── FOOTER ─── -->
+    <footer class="footer">
+        <div class="footer__inner">
+            <div class="footer__brand">
+                <span class="nav__logo-mark">A</span>
+                <span>AetherQA</span>
+            </div>
+            <div class="footer__links">
+                <a href="#features">Features</a>
+                <a href="#pipeline">Pipeline</a>
+                <a href="#how-it-works">How It Works</a>
+                <a href="https://github.com/aniruddhabagal/aetherqa">GitHub</a>
+            </div>
+            <div class="footer__copy">Built for QA engineers who'd rather think than click.</div>
+        </div>
+    </footer>
+
+    <!-- ─── SCRIPTS ─── -->
+    <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
+    <script src="https://unpkg.com/gsap@3.12.7/dist/gsap.min.js"></script>
+    <script src="https://unpkg.com/gsap@3.12.7/dist/ScrollTrigger.min.js"></script>
+    <script src="main.js"></script>
+</body>
+
+</html>
