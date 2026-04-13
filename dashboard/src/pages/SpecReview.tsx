@@ -536,6 +536,8 @@ export function SpecReview() {
 
   if (!specs) {
     const agentRunning = runState?.currentAgent;
+    const pipelineError = runState?.errors?.[0];
+
     return (
       <div style={{ padding: "40px 48px", maxWidth: 640 }}>
         <div style={{ marginBottom: 36 }}>
@@ -562,21 +564,26 @@ export function SpecReview() {
           </p>
         </div>
 
-        {fetchError ? (
+        {fetchError || pipelineError ? (
           <div
             style={{
               display: "flex",
-              alignItems: "flex-start",
-              gap: 10,
+              flexDirection: "column",
+              gap: 8,
               padding: "14px 16px",
               borderRadius: 8,
               background: "#fef2f2",
               border: "1px solid #fecaca",
             }}
           >
-            <AlertCircle size={16} strokeWidth={1.5} color="var(--color-fail)" style={{ flexShrink: 0, marginTop: 2 }} />
-            <p style={{ fontSize: "var(--text-sm)", color: "var(--color-fail)", fontFamily: "var(--font-mono)" }}>
-              {fetchError.message}
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <AlertCircle size={16} strokeWidth={1.5} color="var(--color-fail)" style={{ flexShrink: 0, marginTop: 2 }} />
+              <p style={{ fontSize: "var(--text-sm)", color: "var(--color-fail)", fontFamily: "var(--font-mono)" }}>
+                {pipelineError ?? fetchError?.message}
+              </p>
+            </div>
+            <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-sub)", paddingLeft: 26 }}>
+              Check Docker logs: <code style={{ fontFamily: "var(--font-mono)" }}>docker compose logs aetherqa --tail 50</code>
             </p>
           </div>
         ) : (

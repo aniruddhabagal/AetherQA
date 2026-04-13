@@ -78,6 +78,16 @@ router.post("/runs", async (req, res) => {
       sseManager.broadcast(runId, { type: "run_complete", runId });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
+      console.error(`[run:${runId}] Graph error:`, message);
+      // Write error into the checkpoint so it shows up in GET /runs/:id/results
+      try {
+        await qaGraph.updateState(
+          { configurable: { thread_id: runId } },
+          { errors: [message] },
+        );
+      } catch {
+        // updateState can fail if checkpoint was never written — ignore
+      }
       sseManager.broadcast(runId, { type: "error", error: message });
     }
   })();
