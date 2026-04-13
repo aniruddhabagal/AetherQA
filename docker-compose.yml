@@ -20,6 +20,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 3s
+      timeout: 2s
+      retries: 10
+      start_period: 5s
     volumes:
       - ./tests:/app/tests        # persists generated tests & auth state
       - ./runs:/app/runs          # persists screenshots & traces
@@ -31,6 +37,9 @@ services:
     environment:
       - VITE_API_URL=http://aetherqa:4000
       - VITE_DEFAULT_URL=${DEFAULT_TARGET_URL:-https://staging.yourapp.com}
+    depends_on:
+      aetherqa:
+        condition: service_healthy
 
   postgres:
     image: postgres:16
