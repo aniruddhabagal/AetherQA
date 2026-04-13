@@ -3,7 +3,9 @@
     "allow": [
       "WebSearch",
       "WebFetch(domain:ai.google.dev)",
-      "WebFetch(domain:docs.langchain.com)"
+      "WebFetch(domain:docs.langchain.com)",
+      "Bash(npm show:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }
