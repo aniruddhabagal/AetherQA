@@ -20,6 +20,40 @@ export async function initCheckpointer(): Promise<void> {
   checkpointerReady = true;
 }
 
+// ─── Safe node wrapper ───────────────────────────────────────────────────────
+// Wraps agent nodes so errors are captured into state.errors instead of crashing
+// the entire graph. Without this, a throwing subgraph (e.g., Explorer hitting a
+// Gemini 429) kills the stream and no state update is ever persisted.
+
+function safeNode(
+  name: string,
+  agent:
+    | ((state: QARunStateType) => Promise<Partial<QARunStateType>>)
+    | { invoke: (input: QARunStateType) => Promise<Record<string, unknown>> },
+): (state: QARunStateType) => Promise<Partial<QARunStateType>> {
+  return async (state: QARunStateType): Promise<Partial<QARunStateType>> => {
+    try {
+      console.log(`[${name}] Starting`);
+      const result =
+        typeof agent === "function"
+          ? await agent(state)
+          : await agent.invoke(state);
+      console.log(`[${name}] Completed`);
+      return result as Partial<QARunStateType>;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      // Truncate very long error messages (e.g., Gemini full error payloads)
+      const truncated =
+        message.length > 500 ? message.slice(0, 500) + "..." : message;
+      console.error(`[${name}] Error:`, truncated);
+      return {
+        currentAgent: name,
+        errors: [...(state.errors ?? []), `[${name}] ${truncated}`],
+      };
+    }
+  };
+}
+
 // ─── Conditional edges ────────────────────────────────────────────────────────
 
 function routeFromStart(
@@ -40,11 +74,11 @@ function routeAfterTestCase(
 // ─── Graph ────────────────────────────────────────────────────────────────────
 
 const graph = new StateGraph(QARunState)
-  .addNode("scoper", runScoper)
-  .addNode("explorer", runExplorer)
-  .addNode("testcase", runTestCase)
-  .addNode("automation", runAutomation)
-  .addNode("maintenance", runMaintenance)
+  .addNode("scoper", safeNode("scoper", runScoper))
+  .addNode("explorer", safeNode("explorer", runExplorer))
+  .addNode("testcase", safeNode("testcase", runTestCase))
+  .addNode("automation", safeNode("automation", runAutomation))
+  .addNode("maintenance", safeNode("maintenance", runMaintenance))
   // apiTester added in Week 4 (runs in parallel with UI agents)
 
   // Entry: feature mode goes through scoper first
