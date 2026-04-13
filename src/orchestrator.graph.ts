@@ -6,7 +6,7 @@ import { runExplorer } from "./agents/explorer.graph.js";
 import { runTestCase } from "./agents/testcase.graph.js";
 import { runAutomation } from "./agents/automation.graph.js";
 import { runMaintenance } from "./agents/maintenance.graph.js";
-import { runApiTester } from "./agents/api-tester.graph.js";
+// apiTester imported in Week 4 when wired in parallel
 import { config } from "./config.js";
 
 const checkpointer = PostgresSaver.fromConnString(config.databaseUrl);
@@ -44,8 +44,8 @@ const graph = new StateGraph(QARunState)
   .addNode("explorer", runExplorer)
   .addNode("testcase", runTestCase)
   .addNode("automation", runAutomation)
-  .addNode("apiTester", runApiTester)
   .addNode("maintenance", runMaintenance)
+  // apiTester added in Week 4 (runs in parallel with UI agents)
 
   // Entry: feature mode goes through scoper first
   .addConditionalEdges(START, routeFromStart, {
@@ -64,9 +64,6 @@ const graph = new StateGraph(QARunState)
 
   .addEdge("automation", "maintenance")
   .addEdge("maintenance", END);
-
-// Note: apiTester runs in parallel with UI agents (Week 4).
-// For now it's wired after maintenance to avoid parallel complexity.
 
 // interruptAfter: ["testcase"] suspends the graph after the testcase node completes.
 // The run resumes when POST /runs/:id/approve is called, which sets specsApproved: true
