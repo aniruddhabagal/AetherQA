@@ -137,7 +137,7 @@ export function RunMonitor() {
       {/* Header */}
       <div style={{ marginBottom: 32 }}>
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/app")}
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -425,7 +425,7 @@ export function RunMonitor() {
           Run complete — {passCount} passed, {failCount} failed
           {failCount > 0 && (
             <button
-              onClick={() => navigate("/triage")}
+              onClick={() => navigate("/app/triage")}
               style={{
                 marginLeft: "auto",
                 background: "var(--color-accent)",

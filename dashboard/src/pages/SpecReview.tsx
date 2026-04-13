@@ -528,7 +528,7 @@ export function SpecReview() {
             </p>
             {runId && (
               <button
-                onClick={() => navigate(`/monitor/${runId}`)}
+                onClick={() => navigate(`/app/monitor/${runId}`)}
                 style={{
                   marginTop: 12,
                   background: "var(--color-accent)",
