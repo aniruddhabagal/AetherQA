@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   CheckSquare,
@@ -380,6 +380,7 @@ function BucketSection({
 
 export function SpecReview() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const runId = searchParams.get("runId");
 
   const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
@@ -524,8 +525,25 @@ export function SpecReview() {
               }}
             >
               The Automation agent will now generate and execute Playwright tests.
-              Monitor progress in the Run Monitor once it is available.
             </p>
+            {runId && (
+              <button
+                onClick={() => navigate(`/monitor/${runId}`)}
+                style={{
+                  marginTop: 12,
+                  background: "var(--color-accent)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 6,
+                  padding: "8px 16px",
+                  fontFamily: "var(--font-body)",
+                  fontSize: "var(--text-sm)",
+                  cursor: "pointer",
+                }}
+              >
+                Open Run Monitor
+              </button>
+            )}
           </div>
         </div>
       </div>

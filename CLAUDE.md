@@ -423,18 +423,18 @@ Full context and validation criteria for each week → [`implementation_plan.md 
 
 **Goal:** Tests run, voice works, results stream to dashboard. GitHub codebase access live.
 
-- [ ] Implement Automation agent (`src/agents/automation.graph.ts`) — UI, voice, API code gen templates
-- [ ] Implement `injectSpeechMock` and `injectSpeechErrorMock` in `src/tools/voice.tools.ts`
-- [ ] Create audio fixture library — 6 WAV files in `tests/fixtures/audio/`
-- [ ] Set up `playwright.config.ts` with voice project (`workers: 1`) and UI project (`workers: 4`)
-- [ ] Implement SSE result streaming from runner to dashboard
-- [ ] Dashboard: Run Monitor page (`dashboard/src/pages/RunMonitor.tsx`)
+- [x] Implement Automation agent (`src/agents/automation.graph.ts`) — UI, voice, API code gen templates
+- [x] Implement `injectSpeechMock` and `injectSpeechErrorMock` in `src/tools/voice.tools.ts`
+- [x] Create audio fixture library — 6 WAV files in `tests/fixtures/audio/`
+- [x] Set up `playwright.config.ts` with voice project (`workers: 1`) and UI project (`workers: 4`)
+- [x] Implement SSE result streaming from runner to dashboard
+- [x] Dashboard: Run Monitor page (`dashboard/src/pages/RunMonitor.tsx`)
 - [ ] Create fine-grained GitHub PAT (`contents: read` only on app repo)
 - [ ] Add `GITHUB_TOKEN`, `GITHUB_OWNER`, `GITHUB_REPO` to `.env` and Docker secrets
-- [ ] Install `@langchain/mcp-adapters`, implement `src/tools/github.tools.ts`
-- [ ] Add GitHub MCP sidecar to `docker-compose.yml`
-- [ ] Wire `enrichWithCodebase` into Explorer — validate it finds the React Router config file
-- [ ] Wire `fetchValidationLogic` into Test Case — validate edge cases reference real Zod constraints
+- [x] Install `@langchain/mcp-adapters`, implement `src/tools/github.tools.ts`
+- [x] Add GitHub MCP sidecar to `docker-compose.yml`
+- [x] Wire `enrichWithCodebase` into Explorer — validate it finds the React Router config file
+- [x] Wire `fetchValidationLogic` into Test Case — validate edge cases reference real Zod constraints
 - [ ] Run in shadow mode alongside existing QA process — compare results
 
 **Done when:** Agent-generated tests catch the same bugs as manual testing for 3 flows. Spec edge cases reference real Zod schema constraints, not DOM inference.

@@ -58,13 +58,13 @@ services:
       timeout: 5s
       retries: 10
 
-  # GitHub MCP sidecar — Week 3, uncomment when ready
-  # github-mcp:
-  #   image: ghcr.io/github/github-mcp-server:latest
-  #   ports:
-  #     - "8080:8080"
-  #   environment:
-  #     - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_TOKEN}
+  # GitHub MCP sidecar — reads repo files for Explorer + Test Case codebase enrichment
+  github-mcp:
+    image: ghcr.io/github/github-mcp-server:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - GITHUB_PERSONAL_ACCESS_TOKEN=${GITHUB_TOKEN}
 
 volumes:
   pgdata:
