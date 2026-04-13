@@ -153,7 +153,7 @@ agentic-qa-service/
 
 ```bash
 # Core framework
-npm install @langchain/langgraph @langchain/anthropic @langchain/core
+npm install @langchain/langgraph @langchain/google-genai @langchain/core
 
 # Memory
 npm install mem0ai
@@ -194,8 +194,8 @@ npm install -D @types/express @types/pg @types/node @playwright/test
 ### Environment Variables (`.env.example`)
 
 ```env
-# Anthropic
-ANTHROPIC_API_KEY=sk-ant-...
+# Google AI Studio (Gemini)
+GOOGLE_API_KEY=AIza...
 
 # Mem0
 MEM0_API_KEY=m0-...
@@ -488,13 +488,13 @@ export const qaGraph = graph.compile({ checkpointer });
 ```typescript
 // src/agents/explorer.graph.ts
 import { StateGraph, END, START } from "@langchain/langgraph";
-import { ChatAnthropic } from "@langchain/anthropic";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { chromium, Page } from "playwright";
 import { agentMemory, sessionMemory } from "../memory/mem0.client";
 import { dismissOverlays } from "../tools/playwright.tools";
 import { QARunStateType } from "../state.types";
 
-const llm = new ChatAnthropic({ model: "claude-sonnet-4-6", maxTokens: 4000 });
+const llm = new ChatGoogleGenerativeAI({ model: "gemini-2.5-pro", maxOutputTokens: 4000 });
 
 async function recallMemory(state: QARunStateType) {
   const memory = await agentMemory.recall(
@@ -714,13 +714,13 @@ export const runExplorer = explorerGraph.compile();
 ```typescript
 // src/agents/testcase.graph.ts
 import { StateGraph, END, START } from "@langchain/langgraph";
-import { ChatAnthropic } from "@langchain/anthropic";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { agentMemory, userMemory } from "../memory/mem0.client";
 import * as fs from "fs/promises";
 import * as path from "path";
 import { QARunStateType, TestSpec } from "../state.types";
 
-const llm = new ChatAnthropic({ model: "claude-sonnet-4-6", maxTokens: 6000 });
+const llm = new ChatGoogleGenerativeAI({ model: "gemini-2.5-pro", maxOutputTokens: 6000 });
 
 async function recallPreferences(state: QARunStateType) {
   const [agentCtx, userCtx] = await Promise.all([
@@ -2739,7 +2739,7 @@ services:
       - "4000:4000"
     environment:
       - NODE_ENV=production
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - MEM0_API_KEY=${MEM0_API_KEY}
       - DATABASE_URL=postgresql://qa:qa@postgres:5432/agentic_qa
     depends_on:

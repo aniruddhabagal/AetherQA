@@ -7,7 +7,7 @@ services:
       - "4000:4000"
     environment:
       - NODE_ENV=production
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - MEM0_API_KEY=${MEM0_API_KEY}
       - DATABASE_URL=postgresql://qa:qa@postgres:5432/agentic_qa
       - DEFAULT_TARGET_URL=${DEFAULT_TARGET_URL:-https://staging.yourapp.com}

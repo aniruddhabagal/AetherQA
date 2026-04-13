@@ -210,7 +210,7 @@ gsap.from(element, {
 | ------------------ | --------------------------------------------------------------- |
 | Runtime            | Node.js + TypeScript (`"strict": true`)                         |
 | Orchestration      | LangGraph (`@langchain/langgraph`)                              |
-| LLM                | `@langchain/anthropic` — use `claude-sonnet-4-6` for all agents |
+| LLM                | `@langchain/google-genai` — use `gemini-2.5-pro` for all agents |
 | Memory             | Mem0 (`mem0ai`) — agent / session / user scopes                 |
 | Browser automation | Playwright                                                      |
 | API                | Express + cors + helmet + express-rate-limit                    |
@@ -333,7 +333,7 @@ Full list with descriptions → [`implementation_plan.md §3`](./implementation_
 Required in `.env` (never commit this file, never log keys):
 
 ```
-ANTHROPIC_API_KEY
+GOOGLE_API_KEY
 MEM0_API_KEY
 DATABASE_URL
 DEFAULT_TARGET_URL

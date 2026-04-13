@@ -14,7 +14,7 @@ export const config = {
   port: parseInt(optionalEnv("PORT", "4000"), 10),
   nodeEnv: optionalEnv("NODE_ENV", "development"),
 
-  anthropicApiKey: requireEnv("ANTHROPIC_API_KEY"),
+  googleApiKey: requireEnv("GOOGLE_API_KEY"),
   mem0ApiKey: process.env.MEM0_API_KEY,
   mem0SelfHostedUrl: process.env.MEM0_SELF_HOSTED_URL,
 
@@ -37,5 +37,5 @@ export const config = {
     mcpUrl: optionalEnv("GITHUB_MCP_URL", "http://github-mcp:8080/sse"),
   },
 
-  llmModel: "claude-sonnet-4-6",
+  llmModel: "gemini-2.5-pro",
 } as const;

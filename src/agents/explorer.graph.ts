@@ -1,5 +1,5 @@
 import { StateGraph, END, START } from "@langchain/langgraph";
-import { ChatAnthropic } from "@langchain/anthropic";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { chromium, Page } from "playwright";
 import { agentMemory, sessionMemory } from "../memory/mem0.client.js";
 import { RECALL_KEYS } from "../memory/memory.keys.js";
@@ -11,9 +11,9 @@ import { getGithubTools } from "../tools/github.tools.js";
 import { QARunState, QARunStateType, RouteContext } from "../state.types.js";
 import { config } from "../config.js";
 
-const llm = new ChatAnthropic({
+const llm = new ChatGoogleGenerativeAI({
   model: config.llmModel,
-  maxTokens: 4000,
+  maxOutputTokens: 4000,
 });
 
 // ─── Node: recallMemory ───────────────────────────────────────────────────────
