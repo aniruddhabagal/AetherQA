@@ -322,6 +322,10 @@ Five agents + one scoper. Full implementation for each → [`implementation_plan
 
 ---
 
+Update every week's status by marking them complete / incompete in here after every commit.
+
+---
+
 ## Environment Variables
 
 Full list with descriptions → [`implementation_plan.md §3`](./implementation_plan.md#3-tech-stack--dependencies).
