@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.env
+runs/
+tests/generated/*.spec.ts
+tests/specs/feature/*.md
+tests/specs/regression/*.md
+tests/.auth/*.json
+dashboard/node_modules/
+dashboard/dist/
+*.log
+.DS_Store
