@@ -69,7 +69,7 @@ export function RunTrigger() {
       }
 
       const { runId } = (await res.json()) as { runId: string };
-      navigate(`/monitor?runId=${runId}`);
+      navigate(`/specs?runId=${runId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setLoading(false);

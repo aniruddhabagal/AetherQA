@@ -1,8 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate, NavLink } from "react-router-dom";
 import { LayoutDashboard, Play, FileText, Activity, Bug, Database } from "lucide-react";
 import { RunTrigger } from "./pages/RunTrigger.js";
+import { SpecReview } from "./pages/SpecReview.js";
 
-// Placeholder pages for Week 2–5
+// Placeholder pages for Week 3–5
 function ComingSoon({ label }: { label: string }) {
   return (
     <div style={{ padding: "48px 32px", textAlign: "center", color: "var(--color-text-sub)" }}>
@@ -97,7 +98,7 @@ export function App() {
               fontFamily: "var(--font-mono)",
             }}
           >
-            v1.0.0 — Week 1
+            v1.0.0 — Week 2
           </div>
         </nav>
 
@@ -105,7 +106,7 @@ export function App() {
         <main style={{ flex: 1, overflow: "auto" }}>
           <Routes>
             <Route path="/" element={<RunTrigger />} />
-            <Route path="/specs" element={<ComingSoon label="Spec Review" />} />
+            <Route path="/specs" element={<SpecReview />} />
             <Route path="/monitor" element={<ComingSoon label="Run Monitor" />} />
             <Route path="/triage" element={<ComingSoon label="Failure Triage" />} />
             <Route path="/memory" element={<ComingSoon label="Memory Inspector" />} />

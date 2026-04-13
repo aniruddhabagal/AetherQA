@@ -31,7 +31,9 @@ function routeFromStart(
 function routeAfterTestCase(
   state: QARunStateType,
 ): "automation" | typeof END {
-  // Week 1/2: testcase is a stub. Once real, graph pauses here for human approval.
+  // After the interruptAfter["testcase"] pause and human approval via POST /runs/:id/approve,
+  // the approve endpoint sets specsApproved: true before resuming. If approval was rejected
+  // (or the state is somehow resumed without approval), end the run gracefully.
   return state.specsApproved ? "automation" : END;
 }
 
@@ -66,4 +68,10 @@ const graph = new StateGraph(QARunState)
 // Note: apiTester runs in parallel with UI agents (Week 4).
 // For now it's wired after maintenance to avoid parallel complexity.
 
-export const qaGraph = graph.compile({ checkpointer });
+// interruptAfter: ["testcase"] suspends the graph after the testcase node completes.
+// The run resumes when POST /runs/:id/approve is called, which sets specsApproved: true
+// and calls qaGraph.stream(null, { configurable: { thread_id: runId } }).
+export const qaGraph = graph.compile({
+  checkpointer,
+  interruptAfter: ["testcase"],
+});

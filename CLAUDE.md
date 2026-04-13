@@ -408,11 +408,11 @@ Full context and validation criteria for each week → [`implementation_plan.md 
 
 **Goal:** Specs generate, QA reviews them, system learns from feedback.
 
-- [ ] Implement Test Case agent (`src/agents/testcase.graph.ts`) — spec generation
-- [ ] Implement LangGraph human checkpoint — graph pauses after Agent 2 (`specsApproved: false`)
-- [ ] Implement `POST /runs/:id/approve` endpoint in `src/api/routes.ts`
-- [ ] Dashboard: Spec Review page with inline editor (`dashboard/src/pages/SpecReview.tsx`)
-- [ ] Implement Mem0 writes for spec patterns and user preferences
+- [x] Implement Test Case agent (`src/agents/testcase.graph.ts`) — spec generation
+- [x] Implement LangGraph human checkpoint — graph pauses after Agent 2 (`specsApproved: false`)
+- [x] Implement `POST /runs/:id/approve` endpoint in `src/api/routes.ts`
+- [x] Dashboard: Spec Review page with inline editor (`dashboard/src/pages/SpecReview.tsx`)
+- [x] Implement Mem0 writes for spec patterns and user preferences
 - [ ] Test with real feature — QA reviews AI specs for 3 existing flows
 
 **Done when:** QA team reviews AI-generated specs for familiar features and 80%+ need no edits.
