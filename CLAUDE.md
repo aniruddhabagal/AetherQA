@@ -391,14 +391,14 @@ Full context and validation criteria for each week → [`implementation_plan.md 
 
 **Goal:** Service runs, Explorer works, no agents yet.
 
-- [ ] Scaffold repo structure (all folders, `tsconfig.json`, root `package.json`)
-- [ ] Set up Docker Compose — service + dashboard + postgres containers
-- [ ] Implement `src/memory/mem0.client.ts` with typed agent/session/user scopes
-- [ ] Implement Express API gateway — `POST /runs`, `GET /runs/:id/stream` (SSE)
-- [ ] Build Explorer agent (`src/agents/explorer.graph.ts`) — run against staging URL manually
-- [ ] Verify accessibility tree output is useful for at least 3 routes
-- [ ] Auth setup — save `storageState` for all roles to `tests/.auth/`
-- [ ] Dashboard: Run Trigger page only (`dashboard/src/pages/RunTrigger.tsx`)
+- [x] Scaffold repo structure (all folders, `tsconfig.json`, root `package.json`)
+- [x] Set up Docker Compose — service + dashboard + postgres containers
+- [x] Implement `src/memory/mem0.client.ts` with typed agent/session/user scopes
+- [x] Implement Express API gateway — `POST /runs`, `GET /runs/:id/stream` (SSE)
+- [x] Build Explorer agent (`src/agents/explorer.graph.ts`) — run against staging URL manually
+- [x] Verify accessibility tree output is useful for at least 3 routes
+- [x] Auth setup — save `storageState` for all roles to `tests/.auth/`
+- [x] Dashboard: Run Trigger page only (`dashboard/src/pages/RunTrigger.tsx`)
 
 **Done when:** QA engineer can trigger a run from the dashboard and see the Explorer's app context JSON.
 
