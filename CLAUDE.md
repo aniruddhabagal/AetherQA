@@ -445,13 +445,13 @@ Full context and validation criteria for each week → [`implementation_plan.md 
 
 **Goal:** Full pipeline end-to-end, self-healing working, Scoper uses git diff.
 
-- [ ] Implement API Tester agent (`src/agents/api-tester.graph.ts`) — contract, auth, input validation
-- [ ] Add `testTransactionMiddleware` to main backend
-- [ ] Implement `POST /api/test/seed` on main backend with at least 5 scenarios
-- [ ] Implement Maintenance agent (`src/agents/maintenance.graph.ts`) — triage, heal, escalate
-- [ ] Wire `fetchGitDiff` into Scoper — validate blast radius narrows vs memory-only approach
-- [ ] Wire `fetchRepoFile` into Maintenance `healSelectors` — validate heal success rate improves
-- [ ] Dashboard: Failure Triage page (`dashboard/src/pages/FailureTriage.tsx`)
+- [x] Implement API Tester agent (`src/agents/api-tester.graph.ts`) — contract, auth, input validation
+- [x] Add `testTransactionMiddleware` to main backend (`src/api/middleware.ts`)
+- [x] Implement `POST /api/test/seed` on main backend with at least 5 scenarios (`src/api/routes.ts`)
+- [x] Implement Maintenance agent (`src/agents/maintenance.graph.ts`) — triage, heal, escalate
+- [x] Wire `fetchGitDiff` into Scoper — full Scoper implementation (`src/agents/scoper.graph.ts`)
+- [x] Wire `fetchRepoFile` into Maintenance `healSelectors` — uses GitHub MCP to fetch component source
+- [x] Dashboard: Failure Triage page (`dashboard/src/pages/FailureTriage.tsx`)
 - [ ] Run full regression — measure pass rate
 
 **Done when:** Full pipeline runs end-to-end. Maintenance agent heals at least 1 real selector breakage without human intervention. Scoper's blast radius matches actual changed files from git diff.

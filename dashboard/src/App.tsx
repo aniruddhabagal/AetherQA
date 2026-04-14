@@ -3,14 +3,15 @@ import { LayoutDashboard, Play, FileText, Activity, Bug, Database } from "lucide
 import { RunTrigger } from "./pages/RunTrigger.js";
 import { SpecReview } from "./pages/SpecReview.js";
 import { RunMonitor } from "./pages/RunMonitor.js";
+import { FailureTriage } from "./pages/FailureTriage.js";
 import { Landing } from "./pages/Landing.js";
 
-// Placeholder pages for Week 4–5
+// Placeholder page for Week 5 items
 function ComingSoon({ label }: { label: string }) {
   return (
     <div style={{ padding: "48px 32px", textAlign: "center", color: "var(--color-text-sub)" }}>
       <p style={{ fontFamily: "var(--font-mono)", fontSize: "var(--text-sm)" }}>
-        {label} — coming in a future week
+        {label} — coming in Week 5
       </p>
     </div>
   );
@@ -95,7 +96,7 @@ function DashboardLayout() {
             fontFamily: "var(--font-mono)",
           }}
         >
-          v1.0.0 — Week 3
+          v1.0.0 — Week 4
         </div>
       </nav>
 
@@ -106,7 +107,7 @@ function DashboardLayout() {
           <Route path="specs" element={<SpecReview />} />
           <Route path="monitor" element={<RunMonitor />} />
           <Route path="monitor/:runId" element={<RunMonitor />} />
-          <Route path="triage" element={<ComingSoon label="Failure Triage" />} />
+          <Route path="triage" element={<FailureTriage />} />
           <Route path="memory" element={<ComingSoon label="Memory Inspector" />} />
           <Route path="*" element={<Navigate to="/app" replace />} />
         </Routes>

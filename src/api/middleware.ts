@@ -1,4 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
+import type { Pool, PoolClient } from "pg";
 import { config } from "../config.js";
 
 // ─── Dashboard auth ───────────────────────────────────────────────────────────
@@ -50,4 +51,44 @@ export function requestLogger(
 ): void {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
   next();
+}
+
+// ─── Test transaction middleware ──────────────────────────────────────────────
+// Wraps requests tagged with X-Test-Run: true in a DB transaction that is always
+// rolled back after the response, ensuring zero state pollution between tests.
+// Reference implementation for the main backend — this file ships with AetherQA
+// so QA teams can copy it directly.
+
+export function testTransactionMiddleware(pool: Pool) {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    if (config.nodeEnv !== "test" || !req.headers["x-test-run"]) {
+      next();
+      return;
+    }
+
+    let client: PoolClient;
+    try {
+      client = await pool.connect();
+    } catch (err) {
+      next(err);
+      return;
+    }
+
+    await client.query("BEGIN");
+
+    // Attach the transaction client so controllers can use it
+    (req as Request & { dbClient: PoolClient }).dbClient = client;
+
+    // Always rollback after the response — test state is never persisted
+    res.on("finish", () => {
+      client
+        .query("ROLLBACK")
+        .catch((err: unknown) => {
+          console.error("[test-tx] ROLLBACK failed:", err);
+        })
+        .finally(() => client.release());
+    });
+
+    next();
+  };
 }

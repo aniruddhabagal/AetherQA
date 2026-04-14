@@ -174,6 +174,150 @@ router.delete("/memory/:memoryId", async (req, res) => {
   res.json({ deleted: true });
 });
 
+// ─── POST /api/test/seed — reference test data seeder ────────────────────────
+// Provides isolated fixture data for each test run. Only active in test mode.
+// Each scenario is wrapped in the transaction from testTransactionMiddleware
+// (X-Test-Run: true header triggers auto-rollback after the response).
+// This implementation covers AetherQA's own test infra. Main backend teams
+// should copy this pattern into their own test.routes.ts.
+
+const SEED_SCENARIOS: Record<
+  string,
+  (client: import("pg").PoolClient | null) => Promise<Record<string, string>>
+> = {
+  "lesson-with-pronunciation": async (client) => {
+    if (!client) return { lessonId: "fixture-lesson-1", userId: "fixture-user-1" };
+    const lesson = await client.query(
+      "INSERT INTO lessons (title, type) VALUES ($1, $2) RETURNING id",
+      ["Test Lesson", "pronunciation"],
+    );
+    const user = await client.query(
+      "INSERT INTO users (email, role) VALUES ($1, $2) RETURNING id",
+      ["test-pronunciation@qa.local", "student"],
+    );
+    return {
+      lessonId: String(lesson.rows[0].id),
+      userId: String(user.rows[0].id),
+    };
+  },
+  "lesson-completed": async (client) => {
+    if (!client) return { lessonId: "fixture-lesson-2", userId: "fixture-user-2" };
+    const user = await client.query(
+      "INSERT INTO users (email, role) VALUES ($1, $2) RETURNING id",
+      ["test-completed@qa.local", "student"],
+    );
+    const lesson = await client.query(
+      "INSERT INTO lessons (title, type, score) VALUES ($1, $2, $3) RETURNING id",
+      ["Completed Lesson", "reading", 85],
+    );
+    await client.query(
+      "INSERT INTO lesson_completions (user_id, lesson_id, score) VALUES ($1, $2, $3)",
+      [user.rows[0].id, lesson.rows[0].id, 85],
+    );
+    return {
+      lessonId: String(lesson.rows[0].id),
+      userId: String(user.rows[0].id),
+    };
+  },
+  "user-with-streak": async (client) => {
+    if (!client) return { userId: "fixture-user-3", streak: "7" };
+    const user = await client.query(
+      "INSERT INTO users (email, streak_count) VALUES ($1, $2) RETURNING id",
+      ["test-streak@qa.local", 7],
+    );
+    return { userId: String(user.rows[0].id), streak: "7" };
+  },
+  "user-streak-at-risk": async (client) => {
+    if (!client) return { userId: "fixture-user-4", streak: "3", expiresAt: "" };
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+    const user = await client.query(
+      "INSERT INTO users (email, streak_count, streak_expires_at) VALUES ($1, $2, $3) RETURNING id",
+      ["test-streak-risk@qa.local", 3, expiresAt],
+    );
+    return { userId: String(user.rows[0].id), streak: "3", expiresAt };
+  },
+  "vocabulary-set-empty": async (client) => {
+    if (!client) return { vocabSetId: "fixture-vocab-1" };
+    const set = await client.query(
+      "INSERT INTO vocabulary_sets (name, word_count) VALUES ($1, $2) RETURNING id",
+      ["Empty Set", 0],
+    );
+    return { vocabSetId: String(set.rows[0].id) };
+  },
+  "vocabulary-set-full": async (client) => {
+    if (!client) return { vocabSetId: "fixture-vocab-2" };
+    const set = await client.query(
+      "INSERT INTO vocabulary_sets (name, word_count) VALUES ($1, $2) RETURNING id",
+      ["Full Set", 500],
+    );
+    return { vocabSetId: String(set.rows[0].id) };
+  },
+  "leaderboard-with-10-users": async (client) => {
+    if (!client) return { count: "10", firstUserId: "" };
+    const ids: string[] = [];
+    for (let i = 0; i < 10; i++) {
+      const u = await client.query(
+        "INSERT INTO users (email, score) VALUES ($1, $2) RETURNING id",
+        [`leaderboard-${i}@qa.local`, (10 - i) * 100],
+      );
+      ids.push(String(u.rows[0].id));
+    }
+    return { count: "10", firstUserId: ids[0] ?? "" };
+  },
+  "premium-user": async (client) => {
+    if (!client) return { userId: "fixture-user-premium", tier: "premium" };
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const user = await client.query(
+      "INSERT INTO users (email, subscription_tier, subscription_expires_at) VALUES ($1, $2, $3) RETURNING id",
+      ["test-premium@qa.local", "premium", expiresAt],
+    );
+    return { userId: String(user.rows[0].id), tier: "premium" };
+  },
+  "expired-subscription": async (client) => {
+    if (!client) return { userId: "fixture-user-expired", tier: "premium", expiredAt: "" };
+    const expiredAt = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const user = await client.query(
+      "INSERT INTO users (email, subscription_tier, subscription_expires_at) VALUES ($1, $2, $3) RETURNING id",
+      ["test-expired@qa.local", "premium", expiredAt],
+    );
+    return { userId: String(user.rows[0].id), tier: "premium", expiredAt };
+  },
+};
+
+router.post("/test/seed", async (req, res) => {
+  if (config.nodeEnv !== "test") {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  const { scenario } = req.body as { scenario?: string };
+  if (!scenario || typeof scenario !== "string") {
+    res.status(400).json({ error: "scenario is required" });
+    return;
+  }
+
+  const seeder = SEED_SCENARIOS[scenario];
+  if (!seeder) {
+    res.status(400).json({
+      error: `Unknown scenario: "${scenario}"`,
+      available: Object.keys(SEED_SCENARIOS),
+    });
+    return;
+  }
+
+  try {
+    // Use the transaction client attached by testTransactionMiddleware if present,
+    // otherwise fall back to null (seeder returns static fixture IDs)
+    const dbClient =
+      (req as unknown as { dbClient?: import("pg").PoolClient }).dbClient ?? null;
+    const fixtures = await seeder(dbClient);
+    res.json(fixtures);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    res.status(500).json({ error: message });
+  }
+});
+
 // ─── GET /health ──────────────────────────────────────────────────────────────
 
 router.get("/health", (_req, res) => {

@@ -6,7 +6,7 @@ import { runExplorer } from "./agents/explorer.graph.js";
 import { runTestCase } from "./agents/testcase.graph.js";
 import { runAutomation } from "./agents/automation.graph.js";
 import { runMaintenance } from "./agents/maintenance.graph.js";
-// apiTester imported in Week 4 when wired in parallel
+import { runApiTester } from "./agents/api-tester.graph.js";
 import { config } from "./config.js";
 
 const checkpointer = PostgresSaver.fromConnString(config.databaseUrl);
@@ -79,13 +79,17 @@ const graph = new StateGraph(QARunState)
   .addNode("testcase", safeNode("testcase", runTestCase))
   .addNode("automation", safeNode("automation", runAutomation))
   .addNode("maintenance", safeNode("maintenance", runMaintenance))
-  // apiTester added in Week 4 (runs in parallel with UI agents)
+  .addNode("apiTester", safeNode("apiTester", runApiTester))
 
-  // Entry: feature mode goes through scoper first
+  // Entry: feature mode goes through scoper first; apiTester fans out in parallel
   .addConditionalEdges(START, routeFromStart, {
     scoper: "scoper",
     explorer: "explorer",
   })
+
+  // apiTester runs in parallel from START — its results land in state before
+  // maintenance runs, so maintenance always has both UI and API test outcomes
+  .addEdge(START, "apiTester")
 
   .addEdge("scoper", "explorer")
   .addEdge("explorer", "testcase")
@@ -96,12 +100,16 @@ const graph = new StateGraph(QARunState)
     [END]: END,
   })
 
+  // Both branches converge at maintenance for unified reporting
   .addEdge("automation", "maintenance")
+  .addEdge("apiTester", "maintenance")
   .addEdge("maintenance", END);
 
 // interruptAfter: ["testcase"] suspends the graph after the testcase node completes.
-// The run resumes when POST /runs/:id/approve is called, which sets specsApproved: true
-// and calls qaGraph.stream(null, { configurable: { thread_id: runId } }).
+// The apiTester branch completes before this checkpoint fires (it starts from START
+// in parallel). When the human approves and the graph resumes, automation runs, then
+// maintenance receives both testResults (from automation) and apiTestResults (from
+// apiTester which is already in the persisted checkpoint state).
 export const qaGraph = graph.compile({
   checkpointer,
   interruptAfter: ["testcase"],
