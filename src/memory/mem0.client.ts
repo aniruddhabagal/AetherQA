@@ -25,6 +25,14 @@ function getClient(): MemoryClient | null {
   return _client;
 }
 
+// ─── Shared types ─────────────────────────────────────────────────────────────
+
+export interface MemoryEntry {
+  id: string;
+  memory: string;
+  created_at?: string;
+}
+
 // ─── Agent scope ─────────────────────────────────────────────────────────────
 // Permanent system knowledge — survives across all runs
 
@@ -36,9 +44,17 @@ export const agentMemory = {
       agent_id: AGENT_ID,
       limit: 10,
     } as Parameters<MemoryClient["search"]>[1]);
-    return (res as Array<{ memory: string }>)
-      .map((r) => r.memory)
-      .join("\n");
+    return (res as MemoryEntry[]).map((r) => r.memory).join("\n");
+  },
+
+  async search(query: string): Promise<MemoryEntry[]> {
+    const client = getClient();
+    if (!client) return [];
+    const res = await client.search(query, {
+      agent_id: AGENT_ID,
+      limit: 20,
+    } as Parameters<MemoryClient["search"]>[1]);
+    return res as MemoryEntry[];
   },
 
   async learn(fact: string): Promise<void> {
@@ -94,9 +110,17 @@ export const userMemory = {
       user_id: userId,
       limit: 5,
     } as Parameters<MemoryClient["search"]>[1]);
-    return (res as Array<{ memory: string }>)
-      .map((r) => r.memory)
-      .join("\n");
+    return (res as MemoryEntry[]).map((r) => r.memory).join("\n");
+  },
+
+  async search(query: string, userId: string): Promise<MemoryEntry[]> {
+    const client = getClient();
+    if (!client) return [];
+    const res = await client.search(query, {
+      user_id: userId,
+      limit: 20,
+    } as Parameters<MemoryClient["search"]>[1]);
+    return res as MemoryEntry[];
   },
 
   async save(content: string, userId: string): Promise<void> {
@@ -106,5 +130,11 @@ export const userMemory = {
       [{ role: "user", content }],
       { user_id: userId } as Parameters<MemoryClient["add"]>[1],
     );
+  },
+
+  async forget(memoryId: string): Promise<void> {
+    const client = getClient();
+    if (!client) return;
+    await client.delete(memoryId);
   },
 };

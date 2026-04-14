@@ -462,12 +462,12 @@ Full context and validation criteria for each week → [`implementation_plan.md 
 
 **Goal:** Scoped runs work, memory is inspectable and correctable.
 
-- [ ] Implement Scoper agent (`src/agents/scoper.graph.ts`)
-- [ ] Add `runMode: "feature"` option to dashboard Run Trigger form
-- [ ] Implement blast-radius auto-approval logic (regression bucket skips human review)
-- [ ] Dashboard: Memory Inspector page (`dashboard/src/pages/MemoryInspector.tsx`)
+- [x] Implement Scoper agent (`src/agents/scoper.graph.ts`)
+- [x] Add `runMode: "feature"` option to dashboard Run Trigger form
+- [x] Implement blast-radius auto-approval logic (regression bucket skips human review)
+- [x] Dashboard: Memory Inspector page (`dashboard/src/pages/MemoryInspector.tsx`)
 - [ ] Test scoped run against a real new feature in the app
-- [ ] Implement smoke mode — critical flows queried from user-scoped Mem0
+- [x] Implement smoke mode — critical flows queried from user-scoped Mem0
 
 **Done when:** QA engineer tests a new feature in under 10 minutes from trigger to results. Memory Inspector surfaces meaningful learned facts that can be deleted.
 

@@ -1,7 +1,7 @@
 import { StateGraph, END, START } from "@langchain/langgraph";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { chromium, Page } from "playwright";
-import { agentMemory, sessionMemory } from "../memory/mem0.client.js";
+import { agentMemory, sessionMemory, userMemory } from "../memory/mem0.client.js";
 import { RECALL_KEYS } from "../memory/memory.keys.js";
 import {
   dismissOverlays,
@@ -30,8 +30,28 @@ async function recallMemory(
 async function browseApp(
   state: QARunStateType,
 ): Promise<Partial<QARunStateType>> {
-  const routes =
-    state.scope?.directScope.routes ?? (await inferRoutesFromMemory(state.agentMemory));
+  let routes: string[];
+
+  if (state.runMode === "smoke") {
+    // Smoke mode: use critical flows defined by the QA team in user-scoped memory
+    const criticalFlowsMemory = await userMemory.recall(
+      RECALL_KEYS.smoke.criticalFlows,
+      state.qaUserId,
+    );
+    routes = parseCriticalFlows(criticalFlowsMemory);
+    if (routes.length === 0) {
+      // No critical flows defined yet — fall back to top routes from memory
+      routes = await inferRoutesFromMemory(state.agentMemory);
+      console.warn(
+        "[explorer] Smoke mode: no critical flows in memory — using memory-derived routes. " +
+          "Define critical flows in the Memory Inspector.",
+      );
+    }
+  } else {
+    routes =
+      state.scope?.directScope.routes ??
+      (await inferRoutesFromMemory(state.agentMemory));
+  }
 
   // In full mode with no memory, start with root
   const targetRoutes = routes.length > 0 ? routes : ["/"];
@@ -280,6 +300,19 @@ function resolveRouteParams(route: string, memory: string): string {
     if (parts) knownIds[parts[1]] = parts[2];
   }
   return route.replace(/:(\w+)/g, (_, param: string) => knownIds[param] ?? "1");
+}
+
+// parseCriticalFlows extracts route paths from the user memory string.
+// The QA team stores flows as natural-language facts; we pull out anything
+// that looks like a route path (starts with "/") from those facts.
+function parseCriticalFlows(memory: string): string[] {
+  if (!memory) return [];
+  const tokens = memory
+    .split(/[\s,;]+/)
+    .map((s) => s.trim().replace(/['"]/g, ""))
+    .filter((s) => s.startsWith("/"));
+  // Deduplicate and cap at 15 routes so smoke runs stay fast
+  return [...new Set(tokens)].slice(0, 15);
 }
 
 async function inferRoutesFromMemory(memory: string): Promise<string[]> {

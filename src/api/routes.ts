@@ -2,7 +2,7 @@ import { Router } from "express";
 import { v4 as uuid } from "uuid";
 import { z } from "zod";
 import { qaGraph } from "../orchestrator.graph.js";
-import { agentMemory } from "../memory/mem0.client.js";
+import { agentMemory, userMemory } from "../memory/mem0.client.js";
 import { sseManager } from "./sse.js";
 import { config } from "../config.js";
 
@@ -158,15 +158,54 @@ router.get("/runs/:runId/results", async (req, res) => {
   }
 });
 
-// ─── GET /memory/agent — memory inspector ────────────────────────────────────
+// ─── GET /memory/agent — search agent-scoped memories ────────────────────────
 
 router.get("/memory/agent", async (req, res) => {
-  const query = (req.query["query"] as string | undefined) ?? "all";
-  const memories = await agentMemory.recall(query);
+  const query =
+    (req.query["query"] as string | undefined) ??
+    "app structure routes flows overlays known bugs";
+  const memories = await agentMemory.search(query);
   res.json({ memories });
 });
 
-// ─── DELETE /memory/:memoryId — delete a memory entry ────────────────────────
+// ─── GET /memory/user — search user-scoped memories ──────────────────────────
+
+router.get("/memory/user", async (req, res) => {
+  const query =
+    (req.query["query"] as string | undefined) ??
+    "critical flows always run smoke";
+  const userId = (req.query["userId"] as string | undefined) ?? "default";
+  const memories = await userMemory.search(query, userId);
+  res.json({ memories });
+});
+
+// ─── POST /memory/user — save a user-scoped memory ───────────────────────────
+
+const SaveUserMemorySchema = z.object({
+  content: z.string().min(1),
+  userId: z.string().default("default"),
+});
+
+router.post("/memory/user", async (req, res) => {
+  const parsed = SaveUserMemorySchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.flatten() });
+    return;
+  }
+  const { content, userId } = parsed.data;
+  await userMemory.save(content, userId);
+  res.json({ saved: true });
+});
+
+// ─── DELETE /memory/user/:memoryId — delete a user-scoped memory ─────────────
+
+router.delete("/memory/user/:memoryId", async (req, res) => {
+  const { memoryId } = req.params;
+  await userMemory.forget(memoryId);
+  res.json({ deleted: true });
+});
+
+// ─── DELETE /memory/:memoryId — delete an agent-scoped memory entry ───────────
 
 router.delete("/memory/:memoryId", async (req, res) => {
   const { memoryId } = req.params;
