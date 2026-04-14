@@ -430,7 +430,8 @@ npx playwright test tests/generated/ --project voice-tests
 | Playwright | `waitForTimeout` · CSS selectors · XPath · hardcoded fixture IDs · re-login inside tests                                           |
 | Code       | `require()` · `var` · untyped `any` without comment · default exports                                                              |
 | Git        | Co-author attribution · emoji in commits · batching unrelated changes                                                              |
-| Security   | Committing `.env` · logging API keys                                                                                               |
+| Security   | Committing `.env` · logging API keys · storing tokens in `localStorage` · raw password storage · cross-org data leaks              |
+| Auth       | Skipping `authRequired` on `/api/*` routes · global Mem0 agent IDs (must be org-scoped) · exposing user IDs in URLs                |
 
 ---
 
