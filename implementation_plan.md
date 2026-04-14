@@ -1,7 +1,7 @@
 # AetherQA - Agentic QA System — Complete Implementation Plan
 
-**Stack:** Standalone Node.js / TypeScript service · LangGraph · Mem0 · Playwright · React dashboard  
-**Version:** 1.0 — covers all edge cases, voice/mic, backend API, scoped feature runs
+**Stack:** Node.js / TypeScript SaaS · LangGraph · Mem0 · Playwright · React dashboard  
+**Version:** 2.0 — covers all edge cases, voice/mic, backend API, scoped feature runs, multi-tenant SaaS architecture
 
 ---
 
@@ -29,6 +29,10 @@
 20. [Rollout Plan](#20-rollout-plan)
 21. [What Your QA Team Does After This](#21-what-your-qa-team-does-after-this)
 22. [GitHub Codebase Integration](#22-github-codebase-integration)
+23. [SaaS Authentication & Authorization](#23-saas-authentication--authorization)
+24. [Multi-Tenant Data Model](#24-multi-tenant-data-model)
+25. [SaaS Dashboard — Auth & Org Pages](#25-saas-dashboard--auth--org-pages)
+26. [SaaS Rollout Plan](#26-saas-rollout-plan)
 
 ---
 
@@ -105,9 +109,16 @@ agentic-qa-service/
 │   │   ├── sse.tools.ts             # SSE streaming to dashboard
 │   │   └── github.tools.ts          # Codebase access via GitHub MCP server
 │   ├── api/
-│   │   ├── routes.ts                # All Express routes
+│   │   ├── routes.ts                # QA pipeline routes
+│   │   ├── auth.routes.ts           # Login, register, OAuth, password reset
+│   │   ├── org.routes.ts            # Organization CRUD, members, invites
 │   │   ├── sse.ts                   # Server-sent events manager
-│   │   └── middleware.ts            # Auth, validation, error handling
+│   │   └── middleware.ts            # Auth, org-scope, RBAC, error handling
+│   ├── auth/
+│   │   ├── jwt.ts                   # JWT sign/verify, refresh token rotation
+│   │   ├── password.ts              # bcrypt hash/compare
+│   │   ├── oauth.ts                 # Google + GitHub OAuth handlers
+│   │   └── auth.types.ts            # AuthUser, JWTPayload, OAuthProfile types
 │   ├── orchestrator.graph.ts        # Main StateGraph
 │   ├── state.types.ts               # Shared TypeScript state types
 │   └── config.ts                    # Env vars, constants
@@ -132,12 +143,24 @@ agentic-qa-service/
 ├── dashboard/                       # React dashboard (separate Vite app)
 │   ├── src/
 │   │   ├── pages/
+│   │   │   ├── auth/
+│   │   │   │   ├── Login.tsx
+│   │   │   │   ├── Register.tsx
+│   │   │   │   ├── ForgotPassword.tsx
+│   │   │   │   └── ResetPassword.tsx
+│   │   │   ├── org/
+│   │   │   │   ├── OrgSettings.tsx
+│   │   │   │   ├── Members.tsx
+│   │   │   │   └── OrgSwitcher.tsx
 │   │   │   ├── RunTrigger.tsx
 │   │   │   ├── SpecReview.tsx
 │   │   │   ├── RunMonitor.tsx
 │   │   │   ├── FailureTriage.tsx
 │   │   │   └── MemoryInspector.tsx
-│   │   └── components/
+│   │   ├── components/
+│   │   └── lib/
+│   │       ├── auth.ts              # JWT storage, refresh, auth context
+│   │       └── api.ts               # Fetch wrapper with auth headers
 │   └── package.json
 ├── docker-compose.yml
 ├── playwright.config.ts             # Generated dynamically per run
@@ -165,6 +188,11 @@ npm install playwright
 npm install express cors helmet express-rate-limit
 npm install pg  # PostgreSQL for results store
 npm install dotenv winston zod
+
+# Authentication (SaaS)
+npm install bcrypt jsonwebtoken       # Password hashing + JWT
+npm install @types/bcrypt @types/jsonwebtoken  # (devDeps)
+npm install nodemailer                # Transactional email (password reset, invites)
 
 # Utilities
 npm install ajv  # JSON schema validation for API contract testing
@@ -219,7 +247,27 @@ TEST_ADMIN_EMAIL=qa-admin@yourapp.com
 TEST_ADMIN_PASSWORD=...
 TEST_TOTP_SECRET=...  # for MFA flows
 
-# QA Dashboard auth
+# SaaS Authentication
+JWT_SECRET=...                         # 256-bit secret for signing access tokens
+JWT_REFRESH_SECRET=...                 # Separate secret for refresh tokens
+JWT_ACCESS_EXPIRY=15m                  # Short-lived access tokens
+JWT_REFRESH_EXPIRY=7d                  # Refresh tokens last 7 days
+
+# OAuth Providers (optional — email/password works without these)
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GITHUB_OAUTH_CLIENT_ID=...
+GITHUB_OAUTH_CLIENT_SECRET=...
+OAUTH_CALLBACK_URL=https://app.aetherqa.dev/auth/callback
+
+# Transactional Email (password reset, invite emails)
+SMTP_HOST=smtp.resend.com
+SMTP_PORT=465
+SMTP_USER=resend
+SMTP_PASS=re_...
+EMAIL_FROM=AetherQA <noreply@aetherqa.dev>
+
+# Legacy dashboard auth (deprecated — replaced by JWT auth)
 DASHBOARD_SECRET=...
 
 # GitHub Codebase Integration (read-only access to app source repo)
@@ -2791,20 +2839,82 @@ CMD ["node", "dist/index.js"]
 
 ```sql
 -- src/db/schema.sql
+
+-- ─── SaaS Identity ───────────────────────────────────────────────────────────
+
+CREATE TABLE users (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email           TEXT NOT NULL UNIQUE,
+  password_hash   TEXT,                           -- null for OAuth-only users
+  name            TEXT NOT NULL,
+  avatar_url      TEXT,
+  provider        TEXT DEFAULT 'email',           -- 'email' | 'google' | 'github'
+  provider_id     TEXT,                           -- OAuth provider user ID
+  email_verified  BOOLEAN DEFAULT FALSE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX idx_users_provider ON users(provider, provider_id) WHERE provider_id IS NOT NULL;
+
+CREATE TABLE organizations (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name            TEXT NOT NULL,
+  slug            TEXT NOT NULL UNIQUE,           -- URL-safe identifier
+  plan            TEXT NOT NULL DEFAULT 'free',   -- 'free' | 'pro' | 'team'
+  max_runs_month  INTEGER NOT NULL DEFAULT 50,    -- usage cap per billing period
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE org_members (
+  user_id         UUID REFERENCES users(id) ON DELETE CASCADE,
+  org_id          UUID REFERENCES organizations(id) ON DELETE CASCADE,
+  role            TEXT NOT NULL DEFAULT 'member', -- 'owner' | 'admin' | 'member'
+  invited_by      UUID REFERENCES users(id),
+  joined_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, org_id)
+);
+
+CREATE TABLE org_invites (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id          UUID REFERENCES organizations(id) ON DELETE CASCADE,
+  email           TEXT NOT NULL,
+  role            TEXT NOT NULL DEFAULT 'member',
+  token           TEXT NOT NULL UNIQUE,           -- secure random invite token
+  invited_by      UUID REFERENCES users(id),
+  expires_at      TIMESTAMPTZ NOT NULL,
+  accepted_at     TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE refresh_tokens (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID REFERENCES users(id) ON DELETE CASCADE,
+  token_hash      TEXT NOT NULL UNIQUE,           -- bcrypt hash of refresh token
+  expires_at      TIMESTAMPTZ NOT NULL,
+  revoked_at      TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ─── QA Pipeline Data (org-scoped) ──────────────────────────────────────────
+
 CREATE TABLE qa_runs (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id       UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   run_mode     TEXT NOT NULL,
   target_url   TEXT NOT NULL,
   status       TEXT NOT NULL DEFAULT 'running',
   started_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   completed_at TIMESTAMPTZ,
-  qa_user_id   TEXT,
+  triggered_by UUID REFERENCES users(id),
   scope_json   JSONB
 );
 
+CREATE INDEX idx_qa_runs_org ON qa_runs(org_id, started_at DESC);
+
 CREATE TABLE test_results (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  run_id          UUID REFERENCES qa_runs(id),
+  run_id          UUID REFERENCES qa_runs(id) ON DELETE CASCADE,
   spec_id         TEXT NOT NULL,
   spec_title      TEXT NOT NULL,
   spec_bucket     TEXT NOT NULL,   -- 'feature' | 'regression'
@@ -2820,7 +2930,7 @@ CREATE TABLE test_results (
 
 CREATE TABLE api_test_results (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  run_id          UUID REFERENCES qa_runs(id),
+  run_id          UUID REFERENCES qa_runs(id) ON DELETE CASCADE,
   endpoint        TEXT NOT NULL,
   test_name       TEXT NOT NULL,
   status          TEXT NOT NULL,
@@ -2829,6 +2939,35 @@ CREATE TABLE api_test_results (
   error_message   TEXT,
   created_at      TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ─── Audit & Usage ──────────────────────────────────────────────────────────
+
+CREATE TABLE audit_log (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id          UUID REFERENCES organizations(id) ON DELETE CASCADE,
+  user_id         UUID REFERENCES users(id),
+  action          TEXT NOT NULL,      -- 'run.trigger' | 'specs.approve' | 'memory.delete' | 'member.invite' | ...
+  resource_type   TEXT,               -- 'run' | 'spec' | 'memory' | 'member'
+  resource_id     TEXT,
+  metadata        JSONB,              -- action-specific details
+  ip_address      INET,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_audit_log_org ON audit_log(org_id, created_at DESC);
+
+CREATE TABLE usage_logs (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id          UUID REFERENCES organizations(id) ON DELETE CASCADE,
+  run_id          UUID REFERENCES qa_runs(id) ON DELETE CASCADE,
+  agent           TEXT NOT NULL,      -- 'explorer' | 'testcase' | 'automation' | 'maintenance' | 'api-tester' | 'scoper'
+  tokens_in       INTEGER NOT NULL DEFAULT 0,
+  tokens_out      INTEGER NOT NULL DEFAULT 0,
+  cost_usd        NUMERIC(10,6) NOT NULL DEFAULT 0,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_usage_logs_org ON usage_logs(org_id, created_at DESC);
 
 -- LangGraph checkpointer tables (auto-created by @langchain/langgraph-checkpoint-postgres)
 -- These store paused graph state for human-in-the-loop resumption
@@ -2980,7 +3119,7 @@ The QA team's value shifts from mechanical execution to quality strategy — dec
 
 ---
 
-_Document version 1.0 — covers: 5-agent LangGraph pipeline, Mem0 3-scope memory, voice/mic testing (Web Speech API mock + getUserMedia injection), backend API contract/validation/auth testing, all frontend edge cases (overlays, lazy load, WebSockets, animations, file upload, auth), feature-scoped runs with blast-radius detection, test data isolation, React dashboard with 5 views, Docker deployment, 5-week rollout plan._
+_Document version 1.0 — covers: 5-agent LangGraph pipeline, Mem0 3-scope memory, voice/mic testing (Web Speech API mock + getUserMedia injection), backend API contract/validation/auth testing, all frontend edge cases (overlays, lazy load, WebSockets, animations, file upload, auth), feature-scoped runs with blast-radius detection, test data isolation, React dashboard with 5 views, Docker deployment, 5-week rollout plan. Version 2.0 adds SaaS architecture (sections 23–26)._
 
 ---
 
@@ -3255,3 +3394,687 @@ if (source) {
 ---
 
 _Document version 1.1 — adds: GitHub Codebase Integration (Section 22), GitHub MCP Server sidecar, `github.tools.ts` typed wrapper, per-agent codebase context (Scoper git diff, Explorer router discovery, Test Case validation schemas, Maintenance source-aware healing), graceful degradation pattern, fine-grained PAT setup._
+
+---
+
+## 23. SaaS Authentication & Authorization
+
+### Why SaaS
+
+AetherQA transitions from a single-team internal tool to a hosted SaaS product. Multiple organizations sign up, each gets isolated workspaces with their own runs, memory, and team members. This requires: user identity, organization-scoped data, role-based access, and secure token management.
+
+### Auth Architecture
+
+```
+Browser (React dashboard)
+    │
+    ├── POST /auth/login          → { accessToken, refreshToken }
+    ├── POST /auth/register       → { accessToken, refreshToken }
+    ├── GET  /auth/google         → redirect to Google OAuth
+    ├── GET  /auth/github         → redirect to GitHub OAuth
+    │
+    ▼
+Express API Gateway
+    │
+    ├── authRequired middleware   → validates JWT, attaches user to req
+    ├── orgRequired middleware    → validates org membership, attaches org to req
+    ├── requireRole("admin")     → checks user's role in current org
+    │
+    ▼
+All /api/* routes now receive req.user and req.org
+```
+
+### JWT Token Strategy
+
+- **Access token:** Short-lived (15 min), signed with `JWT_SECRET`. Contains `{ userId, email, name }`. Sent as `Authorization: Bearer <token>`.
+- **Refresh token:** Long-lived (7 days), signed with `JWT_REFRESH_SECRET`. Stored in `refresh_tokens` table as a bcrypt hash. Sent via `httpOnly` cookie.
+- **Token rotation:** Every refresh request issues a new refresh token and revokes the old one. Detects reuse (stolen refresh tokens) by checking if a token was already revoked.
+
+```typescript
+// src/auth/jwt.ts
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
+import { config } from "../config.js";
+
+export interface JWTPayload {
+  userId: string;
+  email: string;
+  name: string;
+}
+
+export function signAccessToken(payload: JWTPayload): string {
+  return jwt.sign(payload, config.jwtSecret, {
+    expiresIn: config.jwtAccessExpiry,
+  });
+}
+
+export function signRefreshToken(payload: { userId: string }): string {
+  return jwt.sign(payload, config.jwtRefreshSecret, {
+    expiresIn: config.jwtRefreshExpiry,
+  });
+}
+
+export function verifyAccessToken(token: string): JWTPayload {
+  return jwt.verify(token, config.jwtSecret) as JWTPayload;
+}
+
+export function verifyRefreshToken(token: string): { userId: string } {
+  return jwt.verify(token, config.jwtRefreshSecret) as { userId: string };
+}
+
+export async function hashRefreshToken(token: string): Promise<string> {
+  return bcrypt.hash(token, 10);
+}
+
+export async function compareRefreshToken(
+  token: string,
+  hash: string,
+): Promise<boolean> {
+  return bcrypt.compare(token, hash);
+}
+```
+
+### Password Handling
+
+```typescript
+// src/auth/password.ts
+import bcrypt from "bcrypt";
+
+const SALT_ROUNDS = 12;
+
+export async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, SALT_ROUNDS);
+}
+
+export async function verifyPassword(
+  password: string,
+  hash: string,
+): Promise<boolean> {
+  return bcrypt.compare(password, hash);
+}
+```
+
+### OAuth Flow (Google + GitHub)
+
+Both providers follow the same pattern:
+
+1. Dashboard redirects user to `GET /auth/{provider}` which redirects to the provider's consent screen
+2. Provider redirects back to `GET /auth/{provider}/callback` with an authorization code
+3. Server exchanges the code for provider tokens, fetches user profile
+4. Server finds-or-creates the user in the `users` table
+5. Server issues AetherQA JWT tokens and redirects to dashboard
+
+```typescript
+// src/auth/oauth.ts
+export interface OAuthProfile {
+  provider: "google" | "github";
+  providerId: string;
+  email: string;
+  name: string;
+  avatarUrl: string | null;
+}
+
+export async function exchangeGoogleCode(code: string): Promise<OAuthProfile> {
+  // Exchange code → tokens via Google OAuth2 API
+  // Fetch user info from https://www.googleapis.com/oauth2/v2/userinfo
+  // Return normalized OAuthProfile
+}
+
+export async function exchangeGithubCode(code: string): Promise<OAuthProfile> {
+  // Exchange code → tokens via GitHub OAuth API
+  // Fetch user info from https://api.github.com/user
+  // Fetch email from https://api.github.com/user/emails
+  // Return normalized OAuthProfile
+}
+```
+
+### Auth Routes
+
+```typescript
+// src/api/auth.routes.ts
+import { Router } from "express";
+import { z } from "zod";
+
+const router = Router();
+
+const RegisterSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  name: z.string().min(1).max(100),
+  orgName: z.string().min(1).max(100).optional(),  // creates org on register
+});
+
+const LoginSchema = z.object({
+  email: z.string().email(),
+  password: z.string(),
+});
+
+// POST /auth/register — create user + optional org
+router.post("/auth/register", async (req, res) => { /* ... */ });
+
+// POST /auth/login — email + password
+router.post("/auth/login", async (req, res) => { /* ... */ });
+
+// POST /auth/refresh — rotate refresh token, issue new access token
+router.post("/auth/refresh", async (req, res) => { /* ... */ });
+
+// POST /auth/logout — revoke refresh token
+router.post("/auth/logout", async (req, res) => { /* ... */ });
+
+// POST /auth/forgot-password — send reset email
+router.post("/auth/forgot-password", async (req, res) => { /* ... */ });
+
+// POST /auth/reset-password — verify token + set new password
+router.post("/auth/reset-password", async (req, res) => { /* ... */ });
+
+// GET /auth/google — redirect to Google consent screen
+router.get("/auth/google", (req, res) => { /* ... */ });
+
+// GET /auth/google/callback — handle Google OAuth callback
+router.get("/auth/google/callback", async (req, res) => { /* ... */ });
+
+// GET /auth/github — redirect to GitHub consent screen
+router.get("/auth/github", (req, res) => { /* ... */ });
+
+// GET /auth/github/callback — handle GitHub OAuth callback
+router.get("/auth/github/callback", async (req, res) => { /* ... */ });
+
+// GET /auth/me — return current user profile
+router.get("/auth/me", authRequired, async (req, res) => { /* ... */ });
+
+export { router as authRouter };
+```
+
+### Middleware Stack
+
+```typescript
+// src/api/middleware.ts — updated for SaaS
+
+import { Request, Response, NextFunction } from "express";
+import { verifyAccessToken, JWTPayload } from "../auth/jwt.js";
+import { pool } from "../db/pool.js";
+
+// Extend Express Request
+declare global {
+  namespace Express {
+    interface Request {
+      user?: JWTPayload & { id: string };
+      org?: { id: string; slug: string; role: string; plan: string };
+    }
+  }
+}
+
+// Validate JWT and attach user to request
+export function authRequired(req: Request, res: Response, next: NextFunction): void {
+  const header = req.headers.authorization;
+  if (!header?.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  try {
+    const payload = verifyAccessToken(header.slice(7));
+    req.user = { ...payload, id: payload.userId };
+    next();
+  } catch {
+    res.status(401).json({ error: "Invalid or expired token" });
+  }
+}
+
+// Validate org membership and attach org to request
+// Reads org slug from X-Org-Slug header or :orgSlug route param
+export async function orgRequired(req: Request, res: Response, next: NextFunction): Promise<void> {
+  if (!req.user) { res.status(401).json({ error: "Authentication required" }); return; }
+
+  const slug = (req.headers["x-org-slug"] as string) ?? req.params["orgSlug"];
+  if (!slug) { res.status(400).json({ error: "Organization slug required" }); return; }
+
+  const result = await pool.query(
+    `SELECT o.id, o.slug, o.plan, om.role
+     FROM organizations o
+     JOIN org_members om ON om.org_id = o.id
+     WHERE o.slug = $1 AND om.user_id = $2`,
+    [slug, req.user.id],
+  );
+
+  if (result.rows.length === 0) {
+    res.status(403).json({ error: "Not a member of this organization" });
+    return;
+  }
+
+  req.org = result.rows[0];
+  next();
+}
+
+// Role-based access control
+export function requireRole(...roles: string[]) {
+  return (req: Request, res: Response, next: NextFunction): void => {
+    if (!req.org) { res.status(403).json({ error: "Organization context required" }); return; }
+    if (!roles.includes(req.org.role)) {
+      res.status(403).json({ error: `Requires role: ${roles.join(" or ")}` });
+      return;
+    }
+    next();
+  };
+}
+```
+
+### RBAC Roles
+
+| Role     | Trigger runs | View results | Approve specs | Manage memory | Invite members | Manage billing | Delete org |
+| -------- | ------------ | ------------ | ------------- | ------------- | -------------- | -------------- | ---------- |
+| `owner`  | Yes          | Yes          | Yes           | Yes           | Yes            | Yes            | Yes        |
+| `admin`  | Yes          | Yes          | Yes           | Yes           | Yes            | No             | No         |
+| `member` | Yes          | Yes          | Yes           | View only     | No             | No             | No         |
+
+### Security Rules
+
+- **Never store raw passwords** — always bcrypt with cost factor 12
+- **Never log tokens** — not in server logs, not in error responses
+- **Refresh token rotation** — every use issues a new token and revokes the old one
+- **Refresh tokens stored as hashes** — if the DB is compromised, tokens can't be used
+- **OAuth state parameter** — always validate to prevent CSRF in OAuth flows
+- **Rate limit auth endpoints** — 5 attempts per minute per IP on login/register
+- **Password reset tokens** — expire in 1 hour, single use, cryptographically random
+
+---
+
+## 24. Multi-Tenant Data Model
+
+### Tenant Isolation Strategy
+
+Every QA pipeline resource belongs to an organization. Isolation is enforced at the middleware level — all queries include `org_id`.
+
+```
+User ─── belongs to ──→ Organization (via org_members)
+                              │
+                    ┌─────────┼─────────┐
+                    ▼         ▼         ▼
+                QA Runs   Memory    Usage Logs
+                    │
+              ┌─────┼─────┐
+              ▼     ▼     ▼
+          Test    API    Audit
+         Results Results  Log
+```
+
+### Organization-Scoped Queries
+
+All pipeline routes use the org from middleware:
+
+```typescript
+// Before (single-tenant):
+const runId = uuid();
+await db.query("INSERT INTO qa_runs (id, run_mode, ...) VALUES ($1, $2, ...)", [runId, mode]);
+
+// After (multi-tenant):
+const runId = uuid();
+await db.query(
+  "INSERT INTO qa_runs (id, org_id, run_mode, triggered_by, ...) VALUES ($1, $2, $3, $4, ...)",
+  [runId, req.org.id, mode, req.user.id],
+);
+```
+
+### Memory Isolation
+
+Mem0 memory scoping changes from `qaUserId` to `orgId:userId`:
+
+```typescript
+// Before:
+await userMemory.recall("critical flows", state.qaUserId);  // "default"
+
+// After:
+await userMemory.recall("critical flows", `${state.orgId}:${state.qaUserId}`);
+```
+
+Agent-scoped memory becomes org-scoped:
+
+```typescript
+// Before:
+const AGENT_ID = "aetherqa-system";
+
+// After:
+function orgAgentId(orgId: string): string {
+  return `aetherqa:${orgId}`;
+}
+```
+
+This means each organization's agent builds its own knowledge base about their specific app — learned selectors, route structures, failure patterns, etc.
+
+### Organization Lifecycle
+
+1. **Registration:** User signs up → creates personal org (org name = user name, slug = auto-generated)
+2. **Create org:** User creates a new org from dashboard → becomes owner
+3. **Invite members:** Owner/admin sends email invite with secure token → invitee registers or logs in → joins org
+4. **Switch orgs:** User can be a member of multiple orgs. Dashboard sidebar shows org switcher. `X-Org-Slug` header scopes all API calls.
+5. **Delete org:** Owner only. Cascades to all runs, results, memory, invites.
+
+### Org Routes
+
+```typescript
+// src/api/org.routes.ts
+
+// GET    /orgs                     — list user's organizations
+// POST   /orgs                     — create a new organization
+// GET    /orgs/:slug               — get org details
+// PATCH  /orgs/:slug               — update org (name, settings)
+// DELETE /orgs/:slug               — delete org (owner only)
+// GET    /orgs/:slug/members       — list members
+// POST   /orgs/:slug/invite        — send invite email
+// DELETE /orgs/:slug/members/:uid  — remove member (admin+)
+// PATCH  /orgs/:slug/members/:uid  — change member role (admin+)
+// POST   /orgs/accept-invite       — accept invite token
+```
+
+### Updated State Type
+
+```typescript
+// src/state.types.ts — additions
+export const QARunState = Annotation.Root({
+  // Run identity
+  runId: Annotation<string>(),
+  orgId: Annotation<string>(),         // ← NEW: organization scope
+  qaUserId: Annotation<string>(),      // now the actual user ID, not "default"
+  triggeredBy: Annotation<string>(),   // ← NEW: user who started the run
+  // ... rest unchanged
+});
+```
+
+### Usage Tracking
+
+Every LLM call logs token counts to `usage_logs`:
+
+```typescript
+// Wrap the LLM invoke in each agent:
+const response = await llm.invoke(messages);
+const usage = response.response_metadata?.usage;
+
+if (usage) {
+  await db.query(
+    `INSERT INTO usage_logs (org_id, run_id, agent, tokens_in, tokens_out, cost_usd)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [
+      state.orgId,
+      state.runId,
+      "explorer",
+      usage.prompt_tokens ?? 0,
+      usage.completion_tokens ?? 0,
+      calculateCost(usage),  // model-specific cost lookup
+    ],
+  );
+}
+```
+
+### Plan Tiers (for billing UI — no payment processing in MVP)
+
+| Plan   | Runs/month | Agents per run | Members | GitHub integration | Price    |
+| ------ | ---------- | -------------- | ------- | ------------------ | -------- |
+| Free   | 50         | All 5          | 3       | Yes                | $0       |
+| Pro    | 500        | All 5          | 10      | Yes                | $49/mo   |
+| Team   | Unlimited  | All 5          | 50      | Yes                | $199/mo  |
+
+Enforcement: check `organizations.max_runs_month` before starting a run. Count runs this billing period. Return 402 if over limit.
+
+---
+
+## 25. SaaS Dashboard — Auth & Org Pages
+
+### Auth Pages
+
+All auth pages live under `dashboard/src/pages/auth/` and use the same design system — Instrument Sans, teal accent, warm off-white background.
+
+#### Login (`Login.tsx`)
+
+```
+┌────────────────────────────────────────────────┐
+│                                                │
+│              AetherQA logo + tagline            │
+│                                                │
+│  ┌──────────────────────────────────────────┐  │
+│  │  Email                                   │  │
+│  └──────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────┐  │
+│  │  Password                                │  │
+│  └──────────────────────────────────────────┘  │
+│                                                │
+│  [        Sign in        ]  (accent button)    │
+│                                                │
+│  Forgot password?                              │
+│                                                │
+│  ──────────── or ────────────                  │
+│                                                │
+│  [ Continue with Google  ]  (outline button)   │
+│  [ Continue with GitHub  ]  (outline button)   │
+│                                                │
+│  Don't have an account? Sign up                │
+│                                                │
+└────────────────────────────────────────────────┘
+```
+
+#### Register (`Register.tsx`)
+
+Same layout as Login plus: Name field, Organization name field (optional — defaults to personal workspace), password strength indicator.
+
+#### Forgot Password (`ForgotPassword.tsx`)
+
+Email input + submit. Shows confirmation message after submit.
+
+#### Reset Password (`ResetPassword.tsx`)
+
+Reads token from URL query param. New password + confirm password inputs.
+
+### Auth Context (Dashboard)
+
+```typescript
+// dashboard/src/lib/auth.ts
+import { createContext, useContext } from "react";
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  avatarUrl: string | null;
+}
+
+export interface AuthContextType {
+  user: AuthUser | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  register: (data: RegisterData) => Promise<void>;
+  logout: () => Promise<void>;
+  loginWithGoogle: () => void;
+  loginWithGithub: () => void;
+}
+
+// Access token stored in memory (not localStorage — XSS safe)
+// Refresh token stored as httpOnly cookie (CSRF safe)
+// On app load: call /auth/refresh to get a new access token
+```
+
+### API Client (Dashboard)
+
+```typescript
+// dashboard/src/lib/api.ts
+let accessToken: string | null = null;
+
+export function setAccessToken(token: string | null): void {
+  accessToken = token;
+}
+
+export async function apiFetch(path: string, options: RequestInit = {}): Promise<Response> {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...((options.headers as Record<string, string>) ?? {}),
+  };
+
+  if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+
+  // Attach current org slug
+  const orgSlug = getCurrentOrgSlug();  // from org context
+  if (orgSlug) headers["X-Org-Slug"] = orgSlug;
+
+  const res = await fetch(`/api${path}`, { ...options, headers });
+
+  // If 401, try refresh
+  if (res.status === 401 && accessToken) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      headers["Authorization"] = `Bearer ${accessToken}`;
+      return fetch(`/api${path}`, { ...options, headers });
+    }
+  }
+
+  return res;
+}
+```
+
+### Org Switcher
+
+Appears in the dashboard sidebar below the AetherQA logo. Shows current org name with a dropdown to switch.
+
+```
+┌─────────────────────┐
+│  ▼ Acme Corp        │  ← current org
+│  ──────────────     │
+│    Acme Corp    ✓   │
+│    Personal         │
+│    Side Project     │
+│  ──────────────     │
+│  + Create org       │
+└─────────────────────┘
+```
+
+Switching orgs sets the `X-Org-Slug` header for all subsequent API calls and refetches dashboard data.
+
+### Org Settings Page (`OrgSettings.tsx`)
+
+Tabs: General | Members | Usage
+
+- **General:** Org name, slug (read-only), plan tier, delete org (owner only)
+- **Members:** List members with role badges, invite form (email + role select), remove/change role buttons
+- **Usage:** Bar chart of runs this month vs. limit, table of token usage per agent
+
+### Route Protection
+
+```typescript
+// dashboard/src/App.tsx — updated routing
+
+function App() {
+  return (
+    <AuthProvider>
+      <OrgProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public */}
+            <Route path="/" element={<Landing />} />
+            <Route path="/auth/login" element={<Login />} />
+            <Route path="/auth/register" element={<Register />} />
+            <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+            <Route path="/auth/reset-password" element={<ResetPassword />} />
+            <Route path="/auth/callback" element={<OAuthCallback />} />
+
+            {/* Protected — requires auth + org */}
+            <Route path="/app/*" element={
+              <RequireAuth>
+                <RequireOrg>
+                  <DashboardLayout />
+                </RequireOrg>
+              </RequireAuth>
+            } />
+          </Routes>
+        </BrowserRouter>
+      </OrgProvider>
+    </AuthProvider>
+  );
+}
+```
+
+### Audit Log
+
+Every significant action writes to `audit_log`. Shown in Org Settings > Activity tab (admin+ only).
+
+Actions tracked:
+- `run.trigger`, `run.approve`, `run.cancel`
+- `memory.delete`, `memory.add_flow`
+- `member.invite`, `member.remove`, `member.role_change`
+- `org.update`, `org.delete`
+
+---
+
+## 26. SaaS Rollout Plan
+
+These weeks follow the existing Weeks 1–5 pipeline implementation. They can run in parallel with Month 2 hardening tasks.
+
+### Week 6 — Authentication
+
+**Goal:** Users can register, log in, and access the dashboard behind auth.
+
+Tasks:
+
+- [ ] Create `users`, `refresh_tokens` tables in schema.sql
+- [ ] Implement `src/auth/jwt.ts` — sign, verify, refresh token rotation
+- [ ] Implement `src/auth/password.ts` — bcrypt hash/compare
+- [ ] Implement `src/api/auth.routes.ts` — register, login, logout, refresh, me
+- [ ] Implement `authRequired` middleware and wire it to all `/api/*` routes
+- [ ] Dashboard: Login page, Register page
+- [ ] Dashboard: `AuthProvider` context + `apiFetch` wrapper with token management
+- [ ] Dashboard: `RequireAuth` route guard — redirect to login if unauthenticated
+- [ ] Rate-limit auth endpoints (5 attempts/min/IP)
+
+**Validation:** User registers, logs in, sees dashboard. Unauthenticated requests to `/api/runs` return 401. Refresh token rotation works (access token expires, auto-refreshes).
+
+---
+
+### Week 7 — Multi-Tenancy & Organizations
+
+**Goal:** Each user belongs to an organization. All pipeline data is org-scoped.
+
+Tasks:
+
+- [ ] Create `organizations`, `org_members`, `org_invites` tables
+- [ ] Implement `src/api/org.routes.ts` — CRUD, members, invites
+- [ ] Implement `orgRequired` and `requireRole` middleware
+- [ ] Update `POST /runs` to write `org_id` and `triggered_by` on every run
+- [ ] Update all `GET` endpoints to filter by `req.org.id`
+- [ ] Update Mem0 scoping — agent memory keyed by org, user memory keyed by `orgId:userId`
+- [ ] Add `orgId` to LangGraph state type
+- [ ] Dashboard: Org Switcher in sidebar
+- [ ] Dashboard: `OrgProvider` context — stores current org, provides `X-Org-Slug`
+- [ ] Dashboard: Org Settings page — General + Members tabs
+- [ ] Auto-create personal org on registration
+
+**Validation:** Two users in different orgs trigger runs — each sees only their own data. Invite flow works end-to-end. Switching orgs shows different runs/memory.
+
+---
+
+### Week 8 — OAuth, Password Reset, Usage & Audit
+
+**Goal:** Polish auth UX. Track usage. Audit trail.
+
+Tasks:
+
+- [ ] Implement `src/auth/oauth.ts` — Google + GitHub exchange handlers
+- [ ] Add OAuth routes to `auth.routes.ts` — redirect + callback for each provider
+- [ ] Dashboard: OAuth buttons on Login/Register pages
+- [ ] Dashboard: `OAuthCallback.tsx` — handles redirect, stores tokens
+- [ ] Implement password reset flow — forgot password email + reset endpoint
+- [ ] Set up `nodemailer` transporter with SMTP config
+- [ ] Dashboard: Forgot Password + Reset Password pages
+- [ ] Create `audit_log`, `usage_logs` tables
+- [ ] Implement audit log writes on significant actions
+- [ ] Add LLM token usage tracking in each agent
+- [ ] Dashboard: Usage tab in Org Settings (runs this month, token costs per agent)
+- [ ] Implement plan-based run limits — check `max_runs_month` before starting a run
+
+**Validation:** OAuth login works for Google and GitHub. Password reset email arrives and reset works. Usage page shows real token counts. Audit log records all tracked actions. Free plan user hits 50-run limit and sees a clear error.
+
+---
+
+### Post-Launch Hardening
+
+- [ ] Add Stripe integration for paid plan upgrades (Pro, Team tiers)
+- [ ] Add email verification flow (verify email after registration)
+- [ ] Implement account deletion (GDPR compliance)
+- [ ] Add SSO/SAML support for enterprise customers
+- [ ] Add API key authentication for CI/CD integrations (headless runs without dashboard)
+- [ ] Rate limiting per org (not just per IP)
+- [ ] Add 2FA (TOTP) support

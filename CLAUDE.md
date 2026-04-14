@@ -14,11 +14,11 @@ This file is the **entry point** for agents and developers working on AetherQA. 
 
 ## Project Overview
 
-AetherQA is a standalone Node.js/TypeScript service: a five-agent LangGraph pipeline with Mem0 memory and Playwright browser automation that autonomously generates, runs, and self-heals tests for web applications. A React dashboard handles human-in-the-loop review.
+AetherQA is a multi-tenant SaaS product: a five-agent LangGraph pipeline with Mem0 memory and Playwright browser automation that autonomously generates, runs, and self-heals tests for web applications. A React dashboard handles human-in-the-loop review. Organizations sign up, invite team members, and get isolated workspaces with role-based access.
 
 **Full architecture, agent designs, API contracts, and rollout plan → [`implementation_plan.md`](./implementation_plan.md)**
 
-**Stack:** Node.js · TypeScript · LangGraph · Mem0 · Playwright · React (Vite) · Express · PostgreSQL
+**Stack:** Node.js · TypeScript · LangGraph · Mem0 · Playwright · React (Vite) · Express · PostgreSQL · JWT · OAuth (Google/GitHub)
 
 ---
 
@@ -31,6 +31,12 @@ aetherqa/
 │   ├── memory/               # Mem0 client, schemas, query keys
 │   ├── tools/                # playwright, voice, api, db-seeder, scroll, sse, github
 │   ├── api/                  # Express routes, SSE manager, middleware
+│   │   ├── routes.ts         # QA pipeline routes
+│   │   ├── auth.routes.ts    # Login, register, OAuth, password reset
+│   │   ├── org.routes.ts     # Organization CRUD, members, invites
+│   │   ├── sse.ts            # Server-sent events manager
+│   │   └── middleware.ts     # authRequired, orgRequired, requireRole, error handling
+│   ├── auth/                 # JWT, password hashing, OAuth handlers
 │   ├── db/                   # PostgreSQL schema (schema.sql)
 │   ├── orchestrator.graph.ts
 │   ├── state.types.ts
@@ -47,7 +53,10 @@ aetherqa/
 ├── dashboard/                # React (Vite) — separate app
 │   └── src/
 │       ├── pages/            # RunTrigger, SpecReview, RunMonitor, FailureTriage, MemoryInspector
-│       └── components/
+│       │   ├── auth/         # Login, Register, ForgotPassword, ResetPassword
+│       │   └── org/          # OrgSettings, Members, OrgSwitcher
+│       ├── components/
+│       └── lib/              # auth.ts (AuthProvider), api.ts (apiFetch with JWT)
 ├── landing/                  # Static marketing page
 ├── docker-compose.yml
 ├── playwright.config.ts      # Generated dynamically per run
@@ -214,7 +223,10 @@ gsap.from(element, {
 | Memory             | Mem0 (`mem0ai`) — agent / session / user scopes                 |
 | Browser automation | Playwright                                                      |
 | API                | Express + cors + helmet + express-rate-limit                    |
-| Database           | PostgreSQL — results store + LangGraph checkpointer             |
+| Authentication     | `jsonwebtoken` + `bcrypt` — JWT access/refresh tokens           |
+| OAuth              | Google + GitHub OAuth2 (authorization code flow)                |
+| Email              | `nodemailer` — password reset, invite emails                    |
+| Database           | PostgreSQL — results store + LangGraph checkpointer + SaaS data |
 | Validation         | Zod (internal), Ajv (API contract testing)                      |
 | GitHub integration | `@langchain/mcp-adapters` → GitHub MCP Server sidecar           |
 
@@ -267,7 +279,10 @@ Five agents + one scoper. Full implementation for each → [`implementation_plan
 | Playwright config (voice/UI split)        | `playwright.config.ts` · [`implementation_plan.md §8`](./implementation_plan.md#8-agent-3--automation)                               |
 | PostgreSQL schema                         | `src/db/schema.sql` · [`implementation_plan.md §19`](./implementation_plan.md#19-docker--deployment)                                 |
 | Docker Compose (incl. GitHub MCP sidecar) | `docker-compose.yml` · [`implementation_plan.md §19`](./implementation_plan.md#19-docker--deployment)                                |
-| Rollout plan (5 weeks)                    | [`implementation_plan.md §20`](./implementation_plan.md#20-rollout-plan)                                                             |
+| Rollout plan (5 weeks + SaaS)             | [`implementation_plan.md §20`](./implementation_plan.md#20-rollout-plan) · [`§26`](./implementation_plan.md#26-saas-rollout-plan)    |
+| SaaS auth (JWT, OAuth, password)          | `src/auth/` · [`implementation_plan.md §23`](./implementation_plan.md#23-saas-authentication--authorization)                         |
+| Multi-tenant data model                   | `src/db/schema.sql` · [`implementation_plan.md §24`](./implementation_plan.md#24-multi-tenant-data-model)                            |
+| SaaS dashboard (auth pages, org mgmt)     | `dashboard/src/pages/auth/` · `dashboard/src/pages/org/` · [`§25`](./implementation_plan.md#25-saas-dashboard--auth--org-pages)      |
 
 ---
 
@@ -282,6 +297,18 @@ Five agents + one scoper. Full implementation for each → [`implementation_plan
 - No `any` unless interfacing with untyped third-party APIs (comment why).
 - Named exports over default exports.
 - Zod for all external inputs: API requests, LLM outputs, Mem0 results.
+
+### Authentication & Multi-Tenancy
+
+- **Every `/api/*` route** (except `/auth/*`) must be behind `authRequired` middleware.
+- **Every pipeline route** (`/runs`, `/memory`, etc.) must also use `orgRequired`.
+- **Never expose user IDs in URLs** — use org slugs for org identification.
+- **Access tokens in memory only** — never `localStorage`. Refresh tokens as `httpOnly` cookies.
+- **All DB queries for pipeline data** must filter by `org_id` — never return cross-org data.
+- **Mem0 agent scope keyed by org** — `aetherqa:{orgId}`, not a global singleton.
+- **Password hashing:** bcrypt, cost factor 12. Never store raw passwords.
+- **Refresh token rotation:** every use revokes old token, issues new one.
+- **Rate limit auth endpoints:** 5 attempts per minute per IP.
 
 ### File Naming
 
@@ -333,18 +360,42 @@ Full list with descriptions → [`implementation_plan.md §3`](./implementation_
 Required in `.env` (never commit this file, never log keys):
 
 ```
+# Core
 GOOGLE_API_KEY
 MEM0_API_KEY
 DATABASE_URL
 DEFAULT_TARGET_URL
+
+# GitHub Integration
 GITHUB_TOKEN          # Fine-grained PAT: contents:read only on app repo
 GITHUB_OWNER
 GITHUB_REPO
 GITHUB_DEFAULT_BRANCH
 GITHUB_MCP_URL        # Default: http://github-mcp:8080/sse
+
+# SaaS Auth
+JWT_SECRET
+JWT_REFRESH_SECRET
+JWT_ACCESS_EXPIRY     # Default: 15m
+JWT_REFRESH_EXPIRY    # Default: 7d
+
+# OAuth (optional — email/password works without these)
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
+GITHUB_OAUTH_CLIENT_ID
+GITHUB_OAUTH_CLIENT_SECRET
+OAUTH_CALLBACK_URL
+
+# Email (password reset, invites)
+SMTP_HOST
+SMTP_PORT
+SMTP_USER
+SMTP_PASS
+EMAIL_FROM
+
+# Test credentials (for Playwright storageState)
 TEST_USER_EMAIL / TEST_USER_PASSWORD
 TEST_ADMIN_EMAIL / TEST_ADMIN_PASSWORD
-DASHBOARD_SECRET
 ```
 
 ---
@@ -473,11 +524,73 @@ Full context and validation criteria for each week → [`implementation_plan.md 
 
 ---
 
+### Week 6 — Authentication
+
+**Goal:** Users can register, log in, and access the dashboard behind auth.
+
+- [ ] Create `users`, `refresh_tokens` tables in schema.sql
+- [ ] Implement `src/auth/jwt.ts` — sign, verify, refresh token rotation
+- [ ] Implement `src/auth/password.ts` — bcrypt hash/compare
+- [ ] Implement `src/api/auth.routes.ts` — register, login, logout, refresh, me
+- [ ] Implement `authRequired` middleware and wire it to all `/api/*` routes
+- [ ] Dashboard: Login page, Register page
+- [ ] Dashboard: `AuthProvider` context + `apiFetch` wrapper with token management
+- [ ] Dashboard: `RequireAuth` route guard — redirect to login if unauthenticated
+- [ ] Rate-limit auth endpoints (5 attempts/min/IP)
+
+**Done when:** User registers, logs in, sees dashboard. Unauthenticated requests return 401. Refresh token rotation works.
+
+---
+
+### Week 7 — Multi-Tenancy & Organizations
+
+**Goal:** Each user belongs to an organization. All pipeline data is org-scoped.
+
+- [ ] Create `organizations`, `org_members`, `org_invites` tables
+- [ ] Implement `src/api/org.routes.ts` — CRUD, members, invites
+- [ ] Implement `orgRequired` and `requireRole` middleware
+- [ ] Update `POST /runs` to write `org_id` and `triggered_by`
+- [ ] Update all `GET` endpoints to filter by `req.org.id`
+- [ ] Update Mem0 scoping — agent memory keyed by org, user memory by `orgId:userId`
+- [ ] Add `orgId` to LangGraph state type
+- [ ] Dashboard: Org Switcher in sidebar
+- [ ] Dashboard: `OrgProvider` context with `X-Org-Slug` header
+- [ ] Dashboard: Org Settings page (General + Members tabs)
+- [ ] Auto-create personal org on registration
+
+**Done when:** Two users in different orgs see only their own data. Invite flow works. Org switching works.
+
+---
+
+### Week 8 — OAuth, Password Reset, Usage & Audit
+
+**Goal:** Polish auth UX. Track usage. Audit trail.
+
+- [ ] Implement `src/auth/oauth.ts` — Google + GitHub OAuth exchange handlers
+- [ ] Add OAuth routes (redirect + callback for each provider)
+- [ ] Dashboard: OAuth buttons on Login/Register
+- [ ] Dashboard: `OAuthCallback.tsx`
+- [ ] Implement password reset flow (forgot password email + reset endpoint)
+- [ ] Set up `nodemailer` with SMTP config
+- [ ] Dashboard: Forgot Password + Reset Password pages
+- [ ] Create `audit_log`, `usage_logs` tables
+- [ ] Implement audit log writes on significant actions
+- [ ] Add LLM token usage tracking in each agent
+- [ ] Dashboard: Usage tab in Org Settings
+- [ ] Implement plan-based run limits (`max_runs_month`)
+
+**Done when:** OAuth login works. Password reset works. Usage page shows token counts. Free plan limit enforced.
+
+---
+
 ### Month 2 — Hardening
 
 - [ ] Tune Maintenance agent — track heal success rate in Mem0, improve prompts based on patterns
 - [ ] Add flaky test quarantine — tests that fail intermittently get auto-disabled and flagged
 - [ ] Expand fixture scenario catalog in `src/tools/fixtures.catalog.ts` as app grows
-- [ ] Add LLM token cost monitoring — log cost per agent per run
 - [ ] Tune Explorer overlay dismissal to handle all overlay types encountered in the app
 - [ ] Write QA team runbook: how to add memory corrections, add fixture scenarios, set critical flows
+- [ ] Add Stripe integration for paid plan upgrades
+- [ ] Add email verification flow
+- [ ] Implement account deletion (GDPR)
+- [ ] Add API key auth for CI/CD headless runs
