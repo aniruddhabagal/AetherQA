@@ -3,8 +3,10 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
 import { router } from "./api/routes.js";
-import { requestLogger, errorHandler } from "./api/middleware.js";
+import { authRouter } from "./api/auth.routes.js";
+import { authRequired, requestLogger, errorHandler } from "./api/middleware.js";
 import { initCheckpointer } from "./orchestrator.graph.js";
 import { config } from "./config.js";
 
@@ -14,7 +16,6 @@ const app = express();
 
 app.use(
   helmet({
-    // SSE endpoints require no content-security-policy restrictions
     contentSecurityPolicy: false,
   }),
 );
@@ -24,31 +25,56 @@ app.use(
     origin:
       config.nodeEnv === "development"
         ? ["http://localhost:3001", "http://localhost:5173"]
-        : process.env.DASHBOARD_ORIGIN ?? "http://localhost:3001",
+        : process.env["DASHBOARD_ORIGIN"] ?? "http://localhost:3001",
     credentials: true,
   }),
 );
 
-app.use(
-  rateLimit({
-    windowMs: 60_000, // 1 minute
-    max: 100,
-    standardHeaders: true,
-    legacyHeaders: false,
-  }),
-);
-
-// ─── Body parsing ─────────────────────────────────────────────────────────────
+// ─── Body & cookie parsing ────────────────────────────────────────────────────
 
 app.use(express.json({ limit: "1mb" }));
+app.use(cookieParser());
 
 // ─── Logging ──────────────────────────────────────────────────────────────────
 
 app.use(requestLogger);
 
-// ─── Routes ───────────────────────────────────────────────────────────────────
+// ─── Rate limiters ────────────────────────────────────────────────────────────
 
-app.use("/api", router);
+const globalLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Strict limiter for login/register — 5 attempts per minute per IP
+const authLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many attempts. Try again in a minute." },
+  skipSuccessfulRequests: true,
+});
+
+app.use(globalLimiter);
+
+// ─── Health check (public) ────────────────────────────────────────────────────
+
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok", service: "aetherqa", version: "1.0.0" });
+});
+
+// ─── Auth routes (public — no authRequired) ───────────────────────────────────
+
+app.use("/auth/login", authLimiter);
+app.use("/auth/register", authLimiter);
+app.use("/auth", authRouter);
+
+// ─── API routes (require valid JWT) ──────────────────────────────────────────
+
+app.use("/api", authRequired, router);
 
 // ─── Error handling ───────────────────────────────────────────────────────────
 

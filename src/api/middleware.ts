@@ -1,9 +1,37 @@
 import type { Request, Response, NextFunction } from "express";
 import type { Pool, PoolClient } from "pg";
+import { verifyAccessToken, type JWTPayload } from "../auth/jwt.js";
 import { config } from "../config.js";
 
-// ─── Dashboard auth ───────────────────────────────────────────────────────────
-// Simple bearer-token check for the dashboard. Not used in development mode.
+// ─── Express type extensions ──────────────────────────────────────────────────
+
+declare global {
+  namespace Express {
+    interface Request {
+      user?: JWTPayload;
+      org?: { id: string; slug: string; role: string; plan: string };
+      dbClient?: PoolClient;
+    }
+  }
+}
+
+// ─── Auth middleware ──────────────────────────────────────────────────────────
+
+export function authRequired(req: Request, res: Response, next: NextFunction): void {
+  const header = req.headers.authorization;
+  if (!header?.startsWith("Bearer ")) {
+    res.status(401).json({ error: "Authentication required" });
+    return;
+  }
+  try {
+    req.user = verifyAccessToken(header.slice(7));
+    next();
+  } catch {
+    res.status(401).json({ error: "Invalid or expired token" });
+  }
+}
+
+// ─── Dashboard auth (legacy — dev bypass) ─────────────────────────────────────
 
 export function dashboardAuth(
   req: Request,
@@ -56,8 +84,6 @@ export function requestLogger(
 // ─── Test transaction middleware ──────────────────────────────────────────────
 // Wraps requests tagged with X-Test-Run: true in a DB transaction that is always
 // rolled back after the response, ensuring zero state pollution between tests.
-// Reference implementation for the main backend — this file ships with AetherQA
-// so QA teams can copy it directly.
 
 export function testTransactionMiddleware(pool: Pool) {
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -76,10 +102,8 @@ export function testTransactionMiddleware(pool: Pool) {
 
     await client.query("BEGIN");
 
-    // Attach the transaction client so controllers can use it
     (req as Request & { dbClient: PoolClient }).dbClient = client;
 
-    // Always rollback after the response — test state is never persisted
     res.on("finish", () => {
       client
         .query("ROLLBACK")

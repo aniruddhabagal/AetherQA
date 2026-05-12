@@ -529,15 +529,15 @@ Full context and validation criteria for each week → [`implementation_plan.md 
 
 **Goal:** Users can register, log in, and access the dashboard behind auth.
 
-- [ ] Create `users`, `refresh_tokens` tables in schema.sql
-- [ ] Implement `src/auth/jwt.ts` — sign, verify, refresh token rotation
-- [ ] Implement `src/auth/password.ts` — bcrypt hash/compare
-- [ ] Implement `src/api/auth.routes.ts` — register, login, logout, refresh, me
-- [ ] Implement `authRequired` middleware and wire it to all `/api/*` routes
-- [ ] Dashboard: Login page, Register page
-- [ ] Dashboard: `AuthProvider` context + `apiFetch` wrapper with token management
-- [ ] Dashboard: `RequireAuth` route guard — redirect to login if unauthenticated
-- [ ] Rate-limit auth endpoints (5 attempts/min/IP)
+- [x] Create `users`, `refresh_tokens` tables in schema.sql
+- [x] Implement `src/auth/jwt.ts` — sign, verify, refresh token rotation
+- [x] Implement `src/auth/password.ts` — bcrypt hash/compare
+- [x] Implement `src/api/auth.routes.ts` — register, login, logout, refresh, me
+- [x] Implement `authRequired` middleware and wire it to all `/api/*` routes
+- [x] Dashboard: Login page, Register page
+- [x] Dashboard: `AuthProvider` context + `apiFetch` wrapper with token management
+- [x] Dashboard: `RequireAuth` route guard — redirect to login if unauthenticated
+- [x] Rate-limit auth endpoints (5 attempts/min/IP)
 
 **Done when:** User registers, logs in, sees dashboard. Unauthenticated requests return 401. Refresh token rotation works.
 

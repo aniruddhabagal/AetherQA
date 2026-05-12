@@ -1,11 +1,15 @@
 import { BrowserRouter, Routes, Route, Navigate, NavLink } from "react-router-dom";
 import { LayoutDashboard, Play, FileText, Activity, Bug, Database } from "lucide-react";
+import { AuthProvider, useAuth } from "./lib/auth.js";
+import { RequireAuth } from "./components/RequireAuth.js";
 import { RunTrigger } from "./pages/RunTrigger.js";
 import { SpecReview } from "./pages/SpecReview.js";
 import { RunMonitor } from "./pages/RunMonitor.js";
 import { FailureTriage } from "./pages/FailureTriage.js";
 import { MemoryInspector } from "./pages/MemoryInspector.js";
 import { Landing } from "./pages/Landing.js";
+import { Login } from "./pages/auth/Login.js";
+import { Register } from "./pages/auth/Register.js";
 
 const NAV_ITEMS = [
   { to: "/app", icon: Play, label: "Run" },
@@ -16,9 +20,10 @@ const NAV_ITEMS = [
 ] as const;
 
 function DashboardLayout() {
+  const { user, logout } = useAuth();
+
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
-      {/* Sidebar */}
       <nav
         style={{
           width: 220,
@@ -30,7 +35,6 @@ function DashboardLayout() {
           flexDirection: "column",
         }}
       >
-        {/* Logo */}
         <div style={{ padding: "0 24px 28px" }}>
           <NavLink to="/" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
             <LayoutDashboard size={20} color="var(--color-accent)" strokeWidth={1.5} />
@@ -48,7 +52,6 @@ function DashboardLayout() {
           </NavLink>
         </div>
 
-        {/* Nav links */}
         <div style={{ flex: 1 }}>
           {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
             <NavLink
@@ -76,21 +79,42 @@ function DashboardLayout() {
           ))}
         </div>
 
-        {/* Version */}
         <div
           style={{
             padding: "16px 24px 0",
             borderTop: "1px solid var(--color-border)",
-            fontSize: "var(--text-xs)",
-            color: "var(--color-text-sub)",
-            fontFamily: "var(--font-mono)",
           }}
         >
-          v1.0.0 — Week 5
+          {user && (
+            <div style={{ marginBottom: "12px" }}>
+              <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-sub)", marginBottom: "2px", fontFamily: "var(--font-mono)" }}>
+                {user.email}
+              </p>
+              <p style={{ fontSize: "var(--text-sm)", color: "var(--color-text)", fontWeight: 500 }}>
+                {user.name}
+              </p>
+            </div>
+          )}
+          <button
+            onClick={() => void logout()}
+            style={{
+              background: "none",
+              border: "none",
+              padding: 0,
+              cursor: "pointer",
+              fontSize: "var(--text-xs)",
+              color: "var(--color-text-sub)",
+              fontFamily: "var(--font-body)",
+            }}
+          >
+            Sign out
+          </button>
+          <p style={{ fontSize: "var(--text-xs)", color: "var(--color-text-sub)", fontFamily: "var(--font-mono)", marginTop: "8px" }}>
+            v1.0.0 — Week 6
+          </p>
         </div>
       </nav>
 
-      {/* Main content */}
       <main style={{ flex: 1, overflow: "auto" }}>
         <Routes>
           <Route index element={<RunTrigger />} />
@@ -108,12 +132,27 @@ function DashboardLayout() {
 
 export function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/app/*" element={<DashboardLayout />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public */}
+          <Route path="/" element={<Landing />} />
+          <Route path="/auth/login" element={<Login />} />
+          <Route path="/auth/register" element={<Register />} />
+
+          {/* Protected */}
+          <Route
+            path="/app/*"
+            element={
+              <RequireAuth>
+                <DashboardLayout />
+              </RequireAuth>
+            }
+          />
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }

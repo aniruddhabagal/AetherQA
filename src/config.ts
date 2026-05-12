@@ -23,6 +23,12 @@ export const config = {
   defaultTargetUrl: optionalEnv("DEFAULT_TARGET_URL", "http://localhost:3000"),
   dashboardSecret: process.env.DASHBOARD_SECRET,
 
+  // JWT — use strong secrets in production
+  jwtSecret: optionalEnv("JWT_SECRET", "dev-jwt-secret-change-in-production"),
+  jwtRefreshSecret: optionalEnv("JWT_REFRESH_SECRET", "dev-jwt-refresh-secret-change-in-production"),
+  jwtAccessExpiry: optionalEnv("JWT_ACCESS_EXPIRY", "15m"),
+  jwtRefreshExpiry: optionalEnv("JWT_REFRESH_EXPIRY", "7d"),
+
   testUserEmail: process.env.TEST_USER_EMAIL,
   testUserPassword: process.env.TEST_USER_PASSWORD,
   testAdminEmail: process.env.TEST_ADMIN_EMAIL,
