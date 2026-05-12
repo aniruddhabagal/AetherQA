@@ -34,7 +34,8 @@ export function Landing() {
     const lenis = new Lenis({ lerp: 0.08, smoothWheel: true });
     lenisRef.current = lenis;
     lenis.on("scroll", ScrollTrigger.update);
-    gsap.ticker.add((time) => lenis.raf(time * 1000));
+    const rafCallback = (time: number) => lenis.raf(time * 1000);
+    gsap.ticker.add(rafCallback);
     gsap.ticker.lagSmoothing(0);
 
     /* ── Anchor links via Lenis ── */
@@ -48,126 +49,128 @@ export function Landing() {
       });
     });
 
-    /* ── Hero parallax ── */
-    gsap.to("[data-hero-grid]", {
-      yPercent: 30,
-      ease: "none",
-      scrollTrigger: { trigger: "[data-hero]", start: "top top", end: "bottom top", scrub: true },
-    });
-
-    gsap.to("[data-hero-glow]", {
-      yPercent: 20,
-      scale: 1.15,
-      ease: "none",
-      scrollTrigger: { trigger: "[data-hero]", start: "top top", end: "bottom top", scrub: true },
-    });
-
-    gsap.to("[data-hero-terminal]", {
-      y: 80,
-      ease: "none",
-      scrollTrigger: { trigger: "[data-hero]", start: "top top", end: "bottom top", scrub: true },
-    });
-
-    /* ── Hero entrance timeline ── */
-    const heroTl = gsap.timeline({ delay: 0.15 });
-    heroTl
-      .from("[data-hero-badge]", { y: 20, opacity: 0, duration: 0.6, ease: "power2.out" })
-      .from("[data-hero-title]", { y: 30, opacity: 0, duration: 0.7, ease: "power2.out" }, "-=0.3")
-      .from("[data-hero-sub]", { y: 20, opacity: 0, duration: 0.6, ease: "power2.out" }, "-=0.35")
-      .from("[data-hero-actions]", { y: 20, opacity: 0, duration: 0.6, ease: "power2.out" }, "-=0.3")
-      .from("[data-hero-terminal]", { y: 50, opacity: 0, duration: 0.9, ease: "power2.out" }, "-=0.3");
-
-    /* ── Terminal lines typewriter ── */
-    gsap.from("[data-terminal-line]", {
-      opacity: 0, x: -8, duration: 0.4, stagger: 0.1, ease: "power2.out", delay: 1.1,
-    });
-
-    /* ── Proof bar ── */
-    gsap.from("[data-proof]", {
-      y: 20, opacity: 0, duration: 0.7, ease: "power2.out",
-      scrollTrigger: { trigger: "[data-proof]", start: "top 92%", toggleActions: "play none none none" },
-    });
-
-    /* ── Section headers ── */
-    root.querySelectorAll("[data-section-header]").forEach((el) => {
-      gsap.from(el, {
-        y: 40, opacity: 0, duration: 0.8, ease: "power2.out",
-        scrollTrigger: { trigger: el, start: "top 85%", toggleActions: "play none none none" },
-      });
-    });
-
-    /* ── Feature cards with parallax offset ── */
-    root.querySelectorAll<HTMLElement>("[data-feature-card]").forEach((card) => {
-      const yOffset = Number(card.dataset.featureCard) || 20;
-      gsap.from(card, {
-        y: 50, opacity: 0, duration: 0.7, ease: "power2.out",
-        scrollTrigger: { trigger: card, start: "top 88%", toggleActions: "play none none none" },
-      });
-      gsap.to(card, {
-        y: yOffset,
+    const ctx = gsap.context(() => {
+      /* ── Hero parallax ── */
+      gsap.to("[data-hero-grid]", {
+        yPercent: 30,
         ease: "none",
-        scrollTrigger: { trigger: card, start: "top bottom", end: "bottom top", scrub: true },
+        scrollTrigger: { trigger: "[data-hero]", start: "top top", end: "bottom top", scrub: true },
       });
-    });
 
-    /* ── Pipeline section parallax bg ── */
-    gsap.to("[data-pipeline-grid]", {
-      yPercent: 20,
-      ease: "none",
-      scrollTrigger: { trigger: "[data-pipeline]", start: "top bottom", end: "bottom top", scrub: true },
-    });
+      gsap.to("[data-hero-glow]", {
+        yPercent: 20,
+        scale: 1.15,
+        ease: "none",
+        scrollTrigger: { trigger: "[data-hero]", start: "top top", end: "bottom top", scrub: true },
+      });
 
-    /* ── Pipeline steps stagger ── */
-    gsap.from("[data-pipeline-step]", {
-      y: 30, opacity: 0, duration: 0.5, stagger: 0.08, ease: "power2.out",
-      scrollTrigger: { trigger: "[data-pipeline-flow]", start: "top 80%", toggleActions: "play none none none" },
-    });
+      gsap.to("[data-hero-terminal]", {
+        y: 80,
+        ease: "none",
+        scrollTrigger: { trigger: "[data-hero]", start: "top top", end: "bottom top", scrub: true },
+      });
 
-    gsap.from("[data-pipeline-parallel]", {
-      y: 30, opacity: 0, duration: 0.6, ease: "power2.out",
-      scrollTrigger: { trigger: "[data-pipeline-parallel]", start: "top 85%", toggleActions: "play none none none" },
-    });
+      /* ── Hero entrance timeline ── */
+      const heroTl = gsap.timeline({ delay: 0.15 });
+      heroTl
+        .from("[data-hero-badge]", { y: 20, opacity: 0, duration: 0.6, ease: "power2.out" })
+        .from("[data-hero-title]", { y: 30, opacity: 0, duration: 0.7, ease: "power2.out" }, "-=0.3")
+        .from("[data-hero-sub]", { y: 20, opacity: 0, duration: 0.6, ease: "power2.out" }, "-=0.35")
+        .from("[data-hero-actions]", { y: 20, opacity: 0, duration: 0.6, ease: "power2.out" }, "-=0.3")
+        .from("[data-hero-terminal]", { y: 50, opacity: 0, duration: 0.9, ease: "power2.out" }, "-=0.3");
 
-    /* ── How it works steps ── */
-    gsap.from("[data-step]", {
-      y: 40, opacity: 0, duration: 0.6, stagger: 0.12, ease: "power2.out",
-      scrollTrigger: { trigger: "[data-steps]", start: "top 80%", toggleActions: "play none none none" },
-    });
+      /* ── Terminal lines typewriter ── */
+      gsap.from("[data-terminal-line]", {
+        opacity: 0, x: -8, duration: 0.4, stagger: 0.1, ease: "power2.out", delay: 1.1,
+      });
 
-    /* ── Metrics parallax bg + cards ── */
-    gsap.to("[data-metrics-grid-bg]", {
-      yPercent: 20,
-      ease: "none",
-      scrollTrigger: { trigger: "[data-metrics]", start: "top bottom", end: "bottom top", scrub: true },
-    });
+      /* ── Proof bar ── */
+      gsap.from("[data-proof]", {
+        y: 20, opacity: 0, duration: 0.7, ease: "power2.out",
+        scrollTrigger: { trigger: "[data-proof]", start: "top 92%", toggleActions: "play none none none" },
+      });
 
-    gsap.from("[data-metric-card]", {
-      y: 30, opacity: 0, duration: 0.6, stagger: 0.1, ease: "power2.out",
-      scrollTrigger: { trigger: "[data-metrics-grid]", start: "top 80%", toggleActions: "play none none none" },
-    });
+      /* ── Section headers ── */
+      root.querySelectorAll("[data-section-header]").forEach((el) => {
+        gsap.from(el, {
+          y: 40, opacity: 0, duration: 0.8, ease: "power2.out",
+          scrollTrigger: { trigger: el, start: "top 85%", toggleActions: "play none none none" },
+        });
+      });
 
-    /* ── CTA ── */
-    gsap.from("[data-cta-content]", {
-      y: 40, opacity: 0, duration: 0.8, ease: "power2.out",
-      scrollTrigger: { trigger: "[data-cta]", start: "top 80%", toggleActions: "play none none none" },
-    });
+      /* ── Feature cards with parallax offset ── */
+      root.querySelectorAll<HTMLElement>("[data-feature-card]").forEach((card) => {
+        const yOffset = Number(card.dataset.featureCard) || 20;
+        gsap.from(card, {
+          y: 50, opacity: 0, duration: 0.7, ease: "power2.out",
+          scrollTrigger: { trigger: card, start: "top 88%", toggleActions: "play none none none" },
+        });
+        gsap.to(card, {
+          y: yOffset,
+          ease: "none",
+          scrollTrigger: { trigger: card, start: "top bottom", end: "bottom top", scrub: true },
+        });
+      });
 
-    /* ── Nav solidify ── */
-    ScrollTrigger.create({
-      start: "top -80",
-      onUpdate(self) {
-        const nav = document.getElementById("landing-nav");
-        if (!nav) return;
-        nav.style.backgroundColor = self.scroll() > 80
-          ? "rgba(248, 247, 244, 0.96)"
-          : "rgba(248, 247, 244, 0.8)";
-      },
-    });
+      /* ── Pipeline section parallax bg ── */
+      gsap.to("[data-pipeline-grid]", {
+        yPercent: 20,
+        ease: "none",
+        scrollTrigger: { trigger: "[data-pipeline]", start: "top bottom", end: "bottom top", scrub: true },
+      });
+
+      /* ── Pipeline steps stagger ── */
+      gsap.from("[data-pipeline-step]", {
+        y: 30, opacity: 0, duration: 0.5, stagger: 0.08, ease: "power2.out",
+        scrollTrigger: { trigger: "[data-pipeline-flow]", start: "top 80%", toggleActions: "play none none none" },
+      });
+
+      gsap.from("[data-pipeline-parallel]", {
+        y: 30, opacity: 0, duration: 0.6, ease: "power2.out",
+        scrollTrigger: { trigger: "[data-pipeline-parallel]", start: "top 85%", toggleActions: "play none none none" },
+      });
+
+      /* ── How it works steps ── */
+      gsap.from("[data-step]", {
+        y: 40, opacity: 0, duration: 0.6, stagger: 0.12, ease: "power2.out",
+        scrollTrigger: { trigger: "[data-steps]", start: "top 80%", toggleActions: "play none none none" },
+      });
+
+      /* ── Metrics parallax bg + cards ── */
+      gsap.to("[data-metrics-grid-bg]", {
+        yPercent: 20,
+        ease: "none",
+        scrollTrigger: { trigger: "[data-metrics]", start: "top bottom", end: "bottom top", scrub: true },
+      });
+
+      gsap.from("[data-metric-card]", {
+        y: 30, opacity: 0, duration: 0.6, stagger: 0.1, ease: "power2.out",
+        scrollTrigger: { trigger: "[data-metrics-grid]", start: "top 80%", toggleActions: "play none none none" },
+      });
+
+      /* ── CTA ── */
+      gsap.from("[data-cta-content]", {
+        y: 40, opacity: 0, duration: 0.8, ease: "power2.out",
+        scrollTrigger: { trigger: "[data-cta]", start: "top 80%", toggleActions: "play none none none" },
+      });
+
+      /* ── Nav solidify ── */
+      ScrollTrigger.create({
+        start: "top -80",
+        onUpdate(self) {
+          const nav = document.getElementById("landing-nav");
+          if (!nav) return;
+          nav.style.backgroundColor = self.scroll() > 80
+            ? "rgba(248, 247, 244, 0.96)"
+            : "rgba(248, 247, 244, 0.8)";
+        },
+      });
+    }, root);
 
     return () => {
+      ctx.revert();
+      gsap.ticker.remove(rafCallback);
       lenis.destroy();
-      ScrollTrigger.getAll().forEach((st) => st.kill());
-      gsap.ticker.remove(lenis.raf);
     };
   }, []);
 
